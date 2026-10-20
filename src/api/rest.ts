@@ -56,6 +56,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (text ? JSON.parse(text) : undefined) as T
 }
 
+// Greška za prikaz u sučelju. Sirova poruka backenda nije za igrače, pa ide samo u konzolu.
+export function describeError(e: unknown): string {
+  console.error(e)
+  if (!(e instanceof ApiError)) return 'Nešto nije u redu. Pokušaj ponovno.'
+  if (e.status === 0) return 'Ne mogu se spojiti na poslužitelj. Provjeri vezu i pokušaj ponovno.'
+  if (e.status === 400) return 'Postavke sobe nisu ispravne. Provjeri broj igrača i uloge.'
+  if (e.status >= 500) return 'Nešto je pošlo po zlu na poslužitelju. Pokušaj ponovno za trenutak.'
+  return 'Nešto nije u redu. Pokušaj ponovno.'
+}
+
 export const getRoles = () => request<Role[]>('/api/test/roles')
 
 export const createLobby = (body: CreateLobbyRequest) =>
