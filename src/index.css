@@ -7,6 +7,7 @@
 /* "inline" jer vrijednosti pokazuju na varijable koje se mijenjaju s temom */
 @theme inline {
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -37,6 +38,45 @@
 
   --ease-out-soft: cubic-bezier(.2, .8, .2, 1);
   --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Animacije iz prototipa. Krivulje su upisane doslovno jer --ease-* iz bloka
+   "@theme inline" ne postoje kao varijable na :root */
+@theme {
+  --animate-ripple: ripple .55s cubic-bezier(.2, .8, .2, 1) forwards;
+  --animate-bump: bump .3s cubic-bezier(.34, 1.56, .64, 1);
+  --animate-pop: pop .4s cubic-bezier(.34, 1.56, .64, 1);
+  --animate-win-on: win-on 1.1s steps(1, end);
+  --animate-win-off: win-off 1.4s forwards;
+
+  @keyframes ripple {
+    from { transform: scale(0); }
+    to { transform: scale(4); opacity: 0; }
+  }
+  @keyframes bump {
+    50% { transform: scale(1.35); }
+  }
+  @keyframes pop {
+    50% { transform: scale(1.04); }
+  }
+  /* paljenje prozora u gradu */
+  @keyframes win-on {
+    0% { opacity: 0; }
+    15% { opacity: .8; }
+    25% { opacity: .1; }
+    40% { opacity: 1; }
+    55% { opacity: .3; }
+    70% { opacity: 1; }
+  }
+  /* gašenje prozora: treperi pa ostane ugašen */
+  @keyframes win-off {
+    0% { fill: var(--window); }
+    20% { opacity: .2; }
+    30% { opacity: 1; }
+    45% { opacity: .1; }
+    60% { opacity: .8; }
+    100% { fill: var(--line); opacity: 1; }
+  }
 }
 
 :root {
@@ -78,6 +118,11 @@
   --sky: #29221A;
   --sky-top: #2E261E;
   --window: #FFE3A6;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent, #FF4D5E);
+  outline-offset: 2px;
 }
 
 /* Brojači (glasovi, broj igrača, timer) */
