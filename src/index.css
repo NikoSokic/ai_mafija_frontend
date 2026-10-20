@@ -4,6 +4,92 @@
 @import "@fontsource/space-grotesk/600.css";
 @import "@fontsource/space-grotesk/700.css";
 
-@theme {
+/* "inline" jer vrijednosti pokazuju na varijable koje se mijenjaju s temom */
+@theme inline {
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-glow: var(--glow);
+  --color-sky: var(--sky);
+  --color-sky-top: var(--sky-top);
+  --color-window: var(--window);
+
+  /* boje uloga (iste u obje teme) */
+  --color-role-mafia: var(--role-mafia);
+  --color-role-dama: var(--role-dama);
+  --color-role-doktor: var(--role-doktor);
+  --color-role-policajac: var(--role-policajac);
+  --color-role-novinar: var(--role-novinar);
+  --color-role-gradanin: var(--role-gradanin);
+
+  --radius-sheet: 28px;
+  --radius-card: 22px;
+  --radius-tile: 18px;
+  --radius-ctrl: 16px;
+
+  --ease-out-soft: cubic-bezier(.2, .8, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+:root {
+  --role-mafia: #FF4D5E;
+  --role-dama: #FF7AB6;
+  --role-doktor: #4FD1A5;
+  --role-policajac: #6FA8FF;
+  --role-novinar: #C49BFF;
+  --role-gradanin: #E6D3B3;
+}
+
+[data-theme="night"] {
+  --bg: #0C0E1B;
+  --surface: #151829;
+  --surface-2: #1E2238;
+  --line: #272C49;
+  --text: #EEF0FA;
+  --muted: #8C92B4;
+  --accent: #FF4D5E;
+  --accent-ink: #22050A;
+  --accent-soft: rgba(255, 77, 94, .13);
+  --glow: rgba(255, 77, 94, .45);
+  --sky: #171B33;
+  --sky-top: #1A1D38;
+  --window: #FFD27A;
+}
+
+[data-theme="day"] {
+  --bg: #1B1713;
+  --surface: #26201A;
+  --surface-2: #30281F;
+  --line: #40362B;
+  --text: #F8F2E9;
+  --muted: #B5A792;
+  --accent: #FFB547;
+  --accent-ink: #2B1B00;
+  --accent-soft: rgba(255, 181, 71, .13);
+  --glow: rgba(255, 181, 71, .45);
+  --sky: #29221A;
+  --sky-top: #2E261E;
+  --window: #FFE3A6;
+}
+
+/* Brojači (glasovi, broj igrača, timer) */
+@utility tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+  }
 }
