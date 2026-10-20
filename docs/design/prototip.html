@@ -1,0 +1,1483 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Mafija – prototip ekrana</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  AI Mafija – klikabilni prototip svih ekrana.
+  Referenca za implementaciju u React + Tailwind (vidi spec.md).
+  Svaka funkcija Screen*/Overlay* odgovara jednoj React komponenti.
+  Elementi s isprekidanim rubom i oznakom "prototip" služe samo za demo i NE idu u aplikaciju.
+-->
+<style>
+/* ============ DESIGN TOKENI ============ */
+:root{
+  --font:'Space Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --emoji:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+  --ease-out:cubic-bezier(.2,.8,.2,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --r-sheet:28px; --r-card:22px; --r-tile:18px; --r-ctrl:16px; --r-small:12px;
+  /* boje uloga (iste u obje teme) */
+  --role-mafia:#FF4D5E; --role-dama:#FF7AB6; --role-doktor:#4FD1A5;
+  --role-policajac:#6FA8FF; --role-novinar:#C49BFF; --role-gradanin:#E6D3B3;
+}
+.phone[data-theme=night]{
+  --bg:#0C0E1B; --surface:#151829; --surface-2:#1E2238; --line:#272C49;
+  --text:#EEF0FA; --muted:#8C92B4; --accent:#FF4D5E; --accent-ink:#22050A;
+  --accent-soft:rgba(255,77,94,.13); --glow:rgba(255,77,94,.45);
+  --sky:#171B33; --sky-top:#1A1D38; --window:#FFD27A;
+}
+.phone[data-theme=day]{
+  --bg:#1B1713; --surface:#26201A; --surface-2:#30281F; --line:#40362B;
+  --text:#F8F2E9; --muted:#B5A792; --accent:#FFB547; --accent-ink:#2B1B00;
+  --accent-soft:rgba(255,181,71,.13); --glow:rgba(255,181,71,.45);
+  --sky:#29221A; --sky-top:#2E261E; --window:#FFE3A6;
+}
+
+/* ============ OSNOVA ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);background:#06070D;color:#EEF0FA;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+:focus-visible{outline:2px solid var(--accent,#FF4D5E);outline-offset:2px}
+.ic{flex-shrink:0;display:block}
+.grow{flex:1;min-width:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ============ PROTOTIP OKVIR ============ */
+.devbar{position:fixed;top:0;left:0;right:0;height:44px;z-index:100;display:flex;align-items:center;gap:6px;padding:0 10px;background:#06070D;border-bottom:1px solid #161a2c;font-size:14px}
+.devbar .tag{color:#6c7290;padding:0 6px}
+.devbar button{height:32px;min-width:32px;border-radius:10px;display:grid;place-items:center;color:#c9cde3}
+.devbar button:hover{background:#13162a}
+.devbar .cur{flex:1;display:flex;justify-content:center;gap:8px;font-weight:600}
+.stage{position:fixed;top:44px;left:0;right:0;bottom:0;display:flex;justify-content:center;align-items:flex-start}
+.phone{position:relative;width:100%;max-width:420px;height:100%;overflow:hidden;background:var(--bg);color:var(--text);transition:background-color .7s var(--ease-out)}
+.phone::before{content:"";position:absolute;inset:0;background:radial-gradient(130% 55% at 70% -8%,var(--sky-top),transparent 62%);pointer-events:none;transition:opacity .7s}
+@media (min-width:560px) and (min-height:740px){
+  .stage{align-items:center}
+  .phone{height:min(860px,calc(100% - 32px));border-radius:42px;border:1px solid #1b1f35;box-shadow:0 40px 120px -20px rgba(0,0,0,.7)}
+}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#screen,#layer{position:absolute;inset:0}
+#screen{z-index:1}
+#layer{z-index:20;pointer-events:none}
+#layer>*{pointer-events:auto}
+.proto{border:1.5px dashed color-mix(in srgb,var(--muted) 60%,transparent)!important;background:transparent!important;color:var(--muted)!important;font-size:14px!important;height:40px!important;border-radius:12px!important;box-shadow:none!important}
+.proto::after{content:"prototip";font-size:11px;margin-left:8px;opacity:.7}
+
+/* ============ EKRAN ============ */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:6px;height:60px;padding:0 10px 0 8px;flex-shrink:0;position:relative;z-index:3}
+.top h2{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.body{flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 20px 24px;position:relative;z-index:2;scrollbar-width:none}
+.body::-webkit-scrollbar{display:none}
+.has-sky .body{padding-bottom:140px}
+.cta{flex-shrink:0;padding:12px 20px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;position:relative;z-index:3}
+.cta .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.phase-title{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700;letter-spacing:-.02em;padding-left:10px}
+.phase-title .ic{color:var(--accent)}
+.section{margin-top:26px}
+.section:first-child{margin-top:8px}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.section-head h3{font-size:15px;font-weight:600;color:var(--text)}
+.section-head span{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.fine{font-size:13px;color:var(--muted);line-height:1.45}
+.lede{font-size:16px;line-height:1.5;color:var(--muted);max-width:32ch}
+
+/* ============ GUMBI ============ */
+.btn{height:56px;width:100%;border-radius:var(--r-ctrl);font-weight:600;font-size:17px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden;isolation:isolate;transition:transform .14s var(--ease-out),background-color .25s,opacity .25s,box-shadow .25s;-webkit-tap-highlight-color:transparent;user-select:none}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 12px 32px -12px var(--glow)}
+.btn-secondary{background:var(--surface-2);color:var(--text)}
+.btn-ghost{color:var(--text);border:1px solid var(--line)}
+.btn[disabled],.btn.is-off{opacity:.38;pointer-events:none;box-shadow:none}
+.btn-hold{-webkit-touch-callout:none;touch-action:manipulation}
+.btn-hold::before{content:"";position:absolute;inset:0;z-index:-1;background:rgba(255,255,255,.28);transform-origin:left;transform:scaleX(var(--p,0))}
+.btn-hold.done{animation:pop .4s var(--ease-spring)}
+.btn .ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.18;transform:scale(0);animation:ripple .55s var(--ease-out) forwards;pointer-events:none}
+.icon-btn{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:var(--text);transition:background-color .2s,transform .14s;flex-shrink:0}
+.icon-btn:hover{background:var(--surface)}
+.icon-btn:active{transform:scale(.92)}
+.link-btn{color:var(--accent);font-weight:600;font-size:15px;height:36px;padding:0 4px}
+
+/* ============ POLJA ============ */
+.field label{display:block;font-size:14px;color:var(--muted);margin-bottom:8px}
+.input{height:56px;width:100%;border-radius:var(--r-ctrl);background:var(--surface);border:1px solid var(--line);padding:0 16px;font-size:18px;font-weight:500;transition:border-color .2s,box-shadow .2s}
+.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-ctrl);padding:4px;gap:4px}
+.seg button{height:42px;border-radius:12px;font-size:15px;font-weight:500;color:var(--muted);transition:background-color .25s,color .25s}
+.seg button[aria-pressed=true]{background:var(--surface-2);color:var(--text)}
+.stepper{display:flex;align-items:center;background:var(--surface-2);border-radius:14px;padding:3px}
+.stepper button{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;color:var(--text);transition:background-color .2s,transform .12s}
+.stepper button:hover{background:var(--line)}
+.stepper button:active{transform:scale(.88)}
+.stepper button:disabled{opacity:.3;pointer-events:none}
+.stepper output{min-width:30px;text-align:center;font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
+.stepper output.bump{animation:bump .3s var(--ease-spring)}
+.switch{width:52px;height:32px;border-radius:99px;background:var(--line);position:relative;transition:background-color .25s;flex-shrink:0}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:var(--text);transition:transform .3s var(--ease-spring)}
+.switch[aria-checked=true]{background:var(--accent)}
+.switch[aria-checked=true]::after{transform:translateX(20px);background:var(--accent-ink)}
+
+/* ============ KARTICE I ČIPOVI ============ */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:99px;background:var(--surface-2);color:var(--muted);font-size:13px;font-weight:500;white-space:nowrap}
+.chip .ic{width:15px;height:15px}
+.rchip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 6px;border-radius:99px;font-size:13px;font-weight:600;color:var(--rc);background:color-mix(in srgb,var(--rc) 15%,transparent)}
+.rchip .ic{width:16px;height:16px}
+.ricon{width:var(--s,40px);height:var(--s,40px);border-radius:calc(var(--s,40px)*.32);display:grid;place-items:center;color:var(--rc);background:color-mix(in srgb,var(--rc) 15%,transparent);flex-shrink:0}
+.comp{display:flex;flex-wrap:wrap;gap:8px}
+.comp-mini{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 10px}
+.comp-mini span{display:inline-flex;align-items:center;gap:3px;font-size:13px}
+.comp-mini b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.comp .ci{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* ============ AVATARI ============ */
+.av{--s:48px;width:var(--s);height:var(--s);border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-family:var(--emoji);font-size:calc(var(--s)*.5);line-height:1;background:hsl(var(--h,240) 38% 21%);position:relative;transition:filter .5s,opacity .5s,box-shadow .25s,transform .25s var(--ease-spring)}
+.av .badge{position:absolute;width:calc(var(--s)*.42);height:calc(var(--s)*.42);min-width:18px;min-height:18px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--text);font-family:var(--font)}
+.av .badge .ic{width:62%;height:62%}
+.av .b-host{top:-3px;right:-3px;color:var(--window)}
+.av .b-mute{bottom:-3px;right:-3px;color:var(--accent)}
+.av.is-dead{filter:grayscale(1) brightness(.7);opacity:.5}
+.av.is-sel{box-shadow:0 0 0 3px var(--bg),0 0 0 5.5px var(--accent);transform:scale(1.04)}
+
+/* ============ GRAD (potpisni element) ============ */
+.city{position:relative;height:0;z-index:4;pointer-events:none;flex-shrink:0}
+.skyline{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:128px;pointer-events:none}
+.has-sky .cta{background:var(--sky)}
+.skyline .bld rect{fill:var(--sky)}
+.skyline .dw{fill:var(--window)}
+.skyline .pw{transition:fill .6s,opacity .6s}
+.skyline .pw.on{fill:var(--window);filter:url(#winglow)}
+.skyline .pw.off{fill:var(--line)}
+.skyline .pw.empty{fill:none;stroke:var(--line);stroke-width:1;stroke-dasharray:2 2}
+.skyline .pw.just-on{animation:winOn 1.1s steps(1,end)}
+.skyline .pw.dying{animation:winOff 1.4s forwards}
+.sky-moon{position:absolute;right:28px;top:84px;width:112px;height:112px;border-radius:50%;z-index:0;pointer-events:none;background:radial-gradient(circle at 38% 36%,color-mix(in srgb,var(--accent) 70%,#fff) 0,var(--accent) 45%,color-mix(in srgb,var(--accent) 30%,transparent) 64%,transparent 70%);opacity:.42}
+.sky-moon::after{content:"";position:absolute;inset:-60px;border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 60%);opacity:.5}
+
+/* ============ POČETNA ============ */
+.hero{padding:28px 0 26px;position:relative}
+.wordmark{font-size:64px;line-height:.92;font-weight:700;letter-spacing:-.045em;margin-bottom:16px}
+.wordmark small{display:block;font-size:22px;letter-spacing:-.01em;font-weight:500;color:var(--muted);margin-bottom:8px}
+.identity{display:flex;align-items:flex-end;gap:14px}
+.av-pick{cursor:pointer;--s:64px}
+.av-pick .b-edit{bottom:-2px;right:-2px;background:var(--surface-2);color:var(--text)}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:14px;padding:12px;border-radius:var(--r-tile);background:var(--surface);border:1px solid var(--line);animation:fadeDown .35s var(--ease-out)}
+.emoji-grid button{aspect-ratio:1;border-radius:12px;font-family:var(--emoji);font-size:22px;display:grid;place-items:center;transition:transform .2s var(--ease-spring),background-color .2s}
+.emoji-grid button:hover{background:var(--surface-2)}
+.emoji-grid button[aria-pressed=true]{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent);transform:scale(1.08)}
+
+/* ============ JAVNE SOBE ============ */
+.room{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:14px;margin-bottom:10px}
+.room h4{font-size:16px;font-weight:600}
+.room .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.room .foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.seats{display:flex;gap:4px}
+.seats i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.seats i.f{background:var(--window)}
+.btn-sm{height:40px;width:auto;padding:0 16px;font-size:15px;border-radius:12px}
+.empty{text-align:center;padding:48px 12px}
+.empty h4{font-size:17px;margin-bottom:6px}
+
+/* ============ NOVA SOBA ============ */
+.big-step{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 12px 18px}
+.big-step .n{font-size:44px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.big-step .stepper button{width:48px;height:48px}
+.role-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.role-row:last-child{border-bottom:0}
+.role-row h4{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+.role-row p{font-size:13px;color:var(--muted);line-height:1.4;margin-top:2px}
+.team-tag{font-size:12px;font-weight:500;color:var(--muted);padding:1px 7px;border-radius:99px;border:1px solid var(--line)}
+.balance{margin-top:14px}
+.balance .bar{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--line);gap:2px}
+.balance .bar i{display:block;height:100%;transition:flex-grow .45s var(--ease-out)}
+.balance .lbl{display:flex;justify-content:space-between;font-size:13px;margin-top:8px;color:var(--muted)}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{text-align:left;padding:14px;border-radius:var(--r-tile);border:1px solid var(--line);background:var(--surface);transition:border-color .25s,background-color .25s}
+.opt .ic{color:var(--muted);margin-bottom:10px}
+.opt h4{font-size:15px;font-weight:600;margin-bottom:4px}
+.opt p{font-size:13px;color:var(--muted);line-height:1.4}
+.opt[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
+.opt[aria-pressed=true] .ic{color:var(--accent)}
+.set-row{display:flex;align-items:center;gap:14px;padding:14px 16px}
+.set-row h4{font-size:15px;font-weight:600}
+.sum{display:flex;align-items:center;gap:10px;font-size:14px;min-height:24px}
+.sum .ic{width:18px;height:18px}
+.sum.ok{color:var(--role-doktor)}
+.sum.bad{color:var(--accent)}
+
+/* ============ LOBBY ============ */
+.code-block{text-align:center;padding:8px 0 4px}
+.code-block .lbl{font-size:14px;color:var(--muted);margin-bottom:12px}
+.code{display:flex;justify-content:center;gap:8px}
+.code span{width:46px;height:62px;border-radius:14px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;font-size:30px;font-weight:700;letter-spacing:-.02em}
+.screen.enter .code span{animation:tileIn .55s var(--ease-spring) both;animation-delay:calc(var(--i)*65ms + 120ms)}
+.code-actions{display:flex;justify-content:center;gap:8px;margin-top:14px}
+.code-actions .btn{height:40px;width:auto;padding:0 14px;font-size:14px;border-radius:12px}
+.badges{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin-top:14px}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pslot{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 8px;border-radius:var(--r-tile);background:var(--surface);border:1px solid var(--line);min-height:60px}
+.pslot .nm{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pslot .sub{font-size:12px;color:var(--muted)}
+.pslot.vacant{background:transparent;border-style:dashed;color:var(--muted);font-size:14px;justify-content:center}
+.pslot.vacant .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:breathe 1.6s ease-in-out infinite}
+.pslot.joined{animation:joinPop .6s var(--ease-spring)}
+.me-tag{font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:99px;margin-left:4px}
+
+/* ============ ULOGA ============ */
+.reveal{display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:6px}
+.flip{width:min(270px,74vw);aspect-ratio:3/4.2;perspective:1200px;margin:10px auto 18px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+.flip-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .75s var(--ease-spring)}
+.flip.is-open .flip-in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:26px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px;border:1px solid var(--line)}
+.face.back{background:var(--surface)}
+.face.back .pattern{position:absolute;inset:0;opacity:.45}
+.face.back .hint{position:relative;margin-top:auto;font-size:15px;font-weight:600;color:var(--text);background:var(--bg);padding:8px 14px;border-radius:99px;border:1px solid var(--line)}
+.face.back .seal{position:relative;margin-top:auto;width:76px;height:76px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:var(--bg);color:var(--accent)}
+.face.front{transform:rotateY(180deg);background:linear-gradient(180deg,color-mix(in srgb,var(--rc) 22%,var(--surface)) 0,var(--surface) 62%)}
+.face.front::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.16) 45%,transparent 60%);transform:translateX(-120%)}
+.flip.is-open .face.front::after{animation:shine 1.1s .35s var(--ease-out)}
+.face.front .ricon{--s:84px;margin-bottom:18px}
+.face.front .ricon .ic{width:46px;height:46px}
+.face.front h3{font-size:38px;font-weight:700;letter-spacing:-.035em;color:var(--rc)}
+.face.front .team{font-size:14px;color:var(--muted);margin:4px 0 14px}
+.face.front p{font-size:15px;line-height:1.45;color:var(--text);max-width:24ch}
+.mates{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.ready-dots{display:flex;gap:6px;justify-content:center;margin-top:10px}
+.ready-dots i{width:8px;height:8px;border-radius:50%;background:var(--line);transition:background-color .3s,transform .3s var(--ease-spring)}
+.ready-dots i.on{background:var(--accent);transform:scale(1.25)}
+
+/* ============ NOĆ / DAN – mreža igrača ============ */
+.prompt{font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-.025em;margin:6px 0 8px;max-width:18ch}
+.prompt-sub{font-size:15px;line-height:1.45;color:var(--muted);margin-bottom:18px;max-width:36ch}
+.turn{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px 0 6px;border-radius:99px;font-size:13px;font-weight:600;color:var(--rc);background:color-mix(in srgb,var(--rc) 14%,transparent);margin-top:4px}
+.turn .ric{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--rc) 22%,transparent)}
+.turn .ic{width:13px;height:13px}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ptile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px 12px;border-radius:var(--r-tile);background:var(--surface);border:1px solid var(--line);transition:border-color .25s,background-color .25s,transform .18s var(--ease-out);-webkit-tap-highlight-color:transparent}
+.ptile:active{transform:scale(.96)}
+.ptile .nm{font-size:14px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptile .tag{position:absolute;top:6px;left:6px;right:6px;font-size:10.5px;font-weight:600;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptile.has-tag{padding-top:22px}
+.ptile.is-sel{border-color:var(--accent);background:var(--accent-soft)}
+.ptile.is-off{opacity:.42;pointer-events:none}
+.ptile .lock{position:absolute;inset:4px;border-radius:14px;pointer-events:none;opacity:0;--k:linear-gradient(var(--accent),var(--accent));background:var(--k) top left/14px 2px no-repeat,var(--k) top left/2px 14px no-repeat,var(--k) top right/14px 2px no-repeat,var(--k) top right/2px 14px no-repeat,var(--k) bottom left/14px 2px no-repeat,var(--k) bottom left/2px 14px no-repeat,var(--k) bottom right/14px 2px no-repeat,var(--k) bottom right/2px 14px no-repeat}
+.ptile.is-sel .lock{opacity:1;animation:lockOn .5s var(--ease-spring)}
+.ptile .picker{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 3px;border-radius:99px;background:var(--bg);border:1px solid var(--line);font-size:11px;font-weight:600;white-space:nowrap}
+.ptile .picker .av{--s:16px}
+.target-line{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);min-height:24px;margin-bottom:2px}
+.target-line b{color:var(--text);font-weight:600}
+.sent{display:flex;flex-direction:column;align-items:center;text-align:center;padding:40px 8px 0}
+.sent .tick{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);margin-bottom:20px}
+.sent .tick svg{width:40px;height:40px}
+.sent .tick path{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .5s .15s var(--ease-out) forwards}
+.sent h3{font-size:26px;font-weight:700;letter-spacing:-.025em;margin-bottom:8px}
+.result{margin-top:8px;padding:20px;border-radius:var(--r-card);text-align:center;border:1px solid color-mix(in srgb,var(--rc) 45%,transparent);background:color-mix(in srgb,var(--rc) 10%,var(--surface));animation:resultIn .7s var(--ease-spring) both}
+.result .pair{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:14px}
+.result .op{font-size:34px;font-weight:700;color:var(--rc)}
+.result h4{font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--rc)}
+.result p{font-size:14px;color:var(--muted);margin-top:6px}
+.sleep{display:flex;flex-direction:column;align-items:center;text-align:center;padding:34px 10px 0}
+.sleep .big-moon{width:120px;height:120px;margin-bottom:28px;position:relative;animation:floaty 6s ease-in-out infinite}
+.sleep .big-moon::before{content:"";position:absolute;inset:-40px;border-radius:50%;background:radial-gradient(circle,rgba(255,210,122,.16),transparent 65%)}
+.sleep .big-moon i{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 36% 40%,#fff4e0,#ffd9a0 40%,#d9a86a 85%);-webkit-mask:radial-gradient(circle at 76% 30%,transparent 43%,#000 44%);mask:radial-gradient(circle at 76% 30%,transparent 43%,#000 44%)}
+.sleep h3{font-size:30px;font-weight:700;letter-spacing:-.03em;margin-bottom:10px}
+.sleep p{font-size:16px;color:var(--muted);line-height:1.5;max-width:30ch}
+.sleep .zz{display:flex;gap:6px;margin-top:22px}
+.sleep .zz i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:breathe 1.8s ease-in-out infinite}
+.sleep .zz i:nth-child(2){animation-delay:.3s}.sleep .zz i:nth-child(3){animation-delay:.6s}
+.ghost-ic{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--muted);margin-bottom:22px;animation:floaty 5s ease-in-out infinite}
+.ghost-ic svg{width:40px;height:40px}
+
+/* ============ DAN ============ */
+.report{padding:6px 16px}
+.report-row{display:flex;align-items:center;gap:14px;padding:12px 0}
+.report-row+.report-row{border-top:1px solid var(--line)}
+.report-row h4{font-size:16px;font-weight:600}
+.report-row p{font-size:13px;color:var(--muted);margin-top:2px}
+.report-row .ic.lead{color:var(--muted)}
+.banner{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:var(--r-tile);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);margin-bottom:14px}
+.banner .ic{color:var(--accent);margin-top:1px;animation:pulse 2s ease-in-out infinite}
+.banner h4{font-size:15px;font-weight:600}
+.banner p{font-size:14px;color:var(--muted);line-height:1.4;margin-top:2px}
+.timer{display:flex;align-items:center;gap:16px;padding:14px 16px}
+.ring{width:64px;height:64px;position:relative;flex-shrink:0}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}
+.ring .tr{stroke:var(--line)}
+.ring .pr{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset 1s linear}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.timer h4{font-size:16px;font-weight:600}
+.timer .tbtns{display:flex;gap:6px;margin-top:8px}
+.timer .tbtns .btn{height:34px;width:auto;padding:0 12px;font-size:13px;border-radius:10px}
+.plist .pl{display:flex;align-items:center;gap:12px;padding:10px 0}
+.plist .pl+.pl{border-top:1px solid var(--line)}
+.plist .pl .nm{font-size:15px;font-weight:600}
+.plist .pl .st{font-size:13px;color:var(--muted)}
+.chatbar{display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);color:var(--muted);font-size:14px}
+
+/* ============ GLASANJE ============ */
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 10px 12px;border-radius:var(--r-tile);background:var(--surface);border:1px solid var(--line);transition:border-color .25s,background-color .25s,transform .2s var(--ease-spring)}
+.vcard .nm{font-size:15px;font-weight:600}
+.vcard .cnt{position:absolute;top:10px;right:12px;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);transition:color .3s}
+.vcard .cnt.hot{color:var(--accent)}
+.vcard .voters{display:flex;min-height:22px}
+.vcard .voters .av{--s:22px;margin-left:-6px;box-shadow:0 0 0 2px var(--surface)}
+.vcard .voters .av:first-child{margin-left:0}
+.vcard .voters .av.new{animation:dropIn .55s var(--ease-spring)}
+.vcard .bar{width:100%;height:4px;border-radius:99px;background:var(--line);overflow:hidden}
+.vcard .bar i{display:block;height:100%;background:var(--accent);transition:width .5s var(--ease-out)}
+.vcard.is-sel{border-color:var(--accent);background:var(--accent-soft)}
+.vcard.is-off{opacity:.42;pointer-events:none}
+.vcard.is-me{pointer-events:none}
+.vprog{display:flex;align-items:center;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:12px}
+.vprog .dots{display:flex;gap:5px}
+.vprog .dots i{width:7px;height:7px;border-radius:50%;background:var(--line);transition:background-color .3s}
+.vprog .dots i.on{background:var(--accent)}
+
+/* ============ KRAJ ============ */
+.win{text-align:center;padding:30px 0 18px}
+.win .k{font-size:15px;color:var(--muted);margin-bottom:10px}
+.win h1{font-size:54px;line-height:.95;font-weight:700;letter-spacing:-.045em;color:var(--accent)}
+.win h1 span{display:inline-block}
+.win h1 .w{white-space:nowrap}
+.screen.enter .win h1 .l{animation:letterUp .7s var(--ease-spring) both;animation-delay:calc(var(--i)*45ms + 200ms)}
+.win p{font-size:16px;color:var(--muted);margin-top:14px}
+.team-list h3{font-size:15px;font-weight:600;margin:22px 0 6px;display:flex;align-items:center;gap:8px}
+.team-list .dotc{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.fate{display:flex;align-items:center;gap:12px;padding:10px 0}
+.fate+.fate{border-top:1px solid var(--line)}
+.fate .nm{font-size:15px;font-weight:600}
+.fate .st{font-size:13px;color:var(--muted)}
+
+/* ============ OVERLAYI ============ */
+.scrim{position:absolute;inset:0;background:rgba(5,6,14,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:fade .3s var(--ease-out)}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:90%;overflow-y:auto;background:var(--surface);border-top:1px solid var(--line);border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:10px 20px calc(22px + env(safe-area-inset-bottom));animation:sheetUp .5s var(--ease-out);scrollbar-width:none}
+.sheet .grab{width:40px;height:5px;border-radius:99px;background:var(--line);margin:0 auto 16px}
+.sheet h2{font-size:24px;font-weight:700;letter-spacing:-.025em;margin-bottom:6px}
+.sheet .sub{font-size:15px;color:var(--muted);margin-bottom:20px;line-height:1.45}
+.otp{display:flex;gap:8px;justify-content:center;margin:6px 0 10px}
+.otp input{width:46px;height:60px;border-radius:14px;background:var(--bg);border:1px solid var(--line);text-align:center;font-size:28px;font-weight:700;text-transform:uppercase;caret-color:var(--accent);transition:border-color .2s,box-shadow .2s}
+.otp input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.otp.err input{border-color:var(--accent)}
+.otp.shake{animation:shake .45s}
+.err-msg{font-size:14px;color:var(--accent);text-align:center;min-height:20px;margin-bottom:12px}
+/* naracija */
+.narr .head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.orb{width:52px;height:52px;border-radius:50%;position:relative;flex-shrink:0;background:radial-gradient(circle at 36% 32%,color-mix(in srgb,var(--accent) 55%,#fff),var(--accent) 55%,color-mix(in srgb,var(--accent) 60%,#000))}
+.orb::before,.orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--accent);opacity:0}
+.orb.talk::before{animation:ringOut 1.8s ease-out infinite}
+.orb.talk::after{animation:ringOut 1.8s .9s ease-out infinite}
+.narr .who{font-size:16px;font-weight:600}
+.narr .where{font-size:13px;color:var(--muted)}
+.wave{display:flex;align-items:center;gap:3px;height:28px}
+.wave i{width:3px;height:6px;border-radius:2px;background:var(--accent);transition:height .3s}
+.wave.on i{animation:wave .9s ease-in-out infinite}
+.wave.on i:nth-child(2){animation-delay:.12s}.wave.on i:nth-child(3){animation-delay:.24s}.wave.on i:nth-child(4){animation-delay:.36s}.wave.on i:nth-child(5){animation-delay:.48s}
+.narr-text{font-size:20px;line-height:1.45;font-weight:500;letter-spacing:-.01em;min-height:116px;margin-bottom:18px}
+.narr-text .caret{display:inline-block;width:2px;height:1.05em;background:var(--accent);vertical-align:-3px;margin-left:2px;animation:blink 1s steps(1) infinite}
+.narr-actions{display:flex;gap:8px;align-items:center}
+.narr-actions .icon-btn{background:var(--surface-2)}
+.narr .fine{margin-top:12px;text-align:center}
+/* pravila */
+.rule-role{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rule-role h4{font-size:15px;font-weight:600;display:flex;gap:8px;align-items:center}
+.rule-role p{font-size:14px;color:var(--muted);line-height:1.45;margin-top:3px}
+.flow{counter-reset:f;display:grid;gap:10px;margin:6px 0 22px}
+.flow li{list-style:none;display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.45}
+.flow li::before{counter-increment:f;content:counter(f);width:26px;height:26px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--surface-2);font-size:13px;font-weight:700}
+.sheet h3{font-size:16px;font-weight:600;margin:4px 0 10px}
+/* toast */
+.toast{position:absolute;top:12px;left:16px;right:16px;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:18px;background:var(--surface-2);border:1px solid var(--line);box-shadow:0 18px 40px -16px rgba(0,0,0,.6);animation:toastIn .5s var(--ease-spring)}
+.toast.out{animation:toastOut .4s var(--ease-out) forwards}
+.toast h4{font-size:15px;font-weight:600}
+.toast p{font-size:13px;color:var(--muted)}
+.spin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--accent);animation:rot .8s linear infinite;flex-shrink:0}
+.toast .ok{color:var(--role-doktor)}
+/* izbacivanje */
+.center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
+.elim{position:relative;text-align:center;width:100%;max-width:320px}
+.elim-av{position:relative;width:132px;height:132px;margin:0 auto 26px}
+.elim-av .av{--s:132px;animation:elimAv 2s var(--ease-out) forwards}
+.elim-av svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.elim-av svg path{fill:none;stroke:var(--bg);stroke-width:3;stroke-linecap:round;stroke-dasharray:90;stroke-dashoffset:90;animation:draw .35s forwards}
+.elim-av svg path:nth-child(1){animation-delay:.55s}.elim-av svg path:nth-child(2){animation-delay:.7s}.elim-av svg path:nth-child(3){animation-delay:.82s}
+.elim h2{font-size:30px;font-weight:700;letter-spacing:-.03em;animation:rise .6s 1.25s var(--ease-out) both}
+.elim p{font-size:15px;color:var(--muted);margin:8px 0 26px;animation:rise .6s 1.4s var(--ease-out) both}
+.elim .btn{animation:rise .6s 1.55s var(--ease-out) both}
+/* prijelaz faza */
+.ptx{position:absolute;inset:0;z-index:40;overflow:hidden;pointer-events:all}
+.ptx .sky{position:absolute;inset:0;clip-path:circle(0% at 50% 100%);animation:sweep .95s var(--ease-out) forwards}
+.ptx.night .sky{background:linear-gradient(180deg,#07081a 0,#151033 55%,#2a0f24 100%)}
+.ptx.day .sky{background:linear-gradient(180deg,#4a2a12 0,#2a1c12 55%,#1B1713 100%)}
+.ptx .orbit{position:absolute;left:50%;top:30%;width:120px;height:120px;margin-left:-60px;border-radius:50%;opacity:0;animation:orbRise 1.3s .35s var(--ease-out) forwards}
+.ptx.night .orbit{background:radial-gradient(circle at 38% 34%,#fff 0,#FFB3BA 34%,#FF4D5E 100%);box-shadow:0 0 120px 20px rgba(255,77,94,.35)}
+.ptx.day .orbit{background:radial-gradient(circle at 40% 38%,#FFF4D6 0,#FFCF7A 45%,#FFB547 100%);box-shadow:0 0 140px 40px rgba(255,181,71,.4)}
+.ptx .txt{position:absolute;left:0;right:0;top:52%;text-align:center;color:#fff}
+.ptx h2{font-size:64px;font-weight:700;letter-spacing:-.045em;line-height:1}
+.ptx h2 span{display:inline-block;opacity:0;animation:letterUp .7s var(--ease-spring) forwards;animation-delay:calc(var(--i)*55ms + .55s)}
+.ptx p{font-size:17px;opacity:0;color:rgba(255,255,255,.7);margin-top:12px;animation:rise .6s 1s var(--ease-out) forwards}
+.ptx.out{animation:fadeOut .55s var(--ease-out) forwards}
+/* drawer prototipa */
+#drawer{position:fixed;inset:0;z-index:200;display:none}
+#drawer.open{display:block}
+#drawer .dscrim{position:absolute;inset:0;background:rgba(3,4,10,.7);animation:fade .25s}
+#drawer .dpanel{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:100%;max-width:460px;max-height:86%;overflow-y:auto;background:#0f1120;border:1px solid #1d2136;border-radius:24px 24px 0 0;padding:18px 18px 26px;animation:sheetUp .4s var(--ease-out);color:#e8eaf6}
+#drawer h3{font-size:13px;font-weight:600;color:#7d83a3;margin:16px 0 8px}
+#drawer h3:first-child{margin-top:0}
+#drawer .dl{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#drawer .dl button{text-align:left;height:40px;padding:0 12px;border-radius:10px;background:#161a2e;font-size:14px;display:flex;align-items:center;gap:8px}
+#drawer .dl button.cur{background:#FF4D5E;color:#22050A;font-weight:600}
+#drawer .dl button small{opacity:.6;font-variant-numeric:tabular-nums}
+#drawer .dseg{display:flex;flex-wrap:wrap;gap:6px}
+#drawer .dseg button{height:34px;padding:0 12px;border-radius:99px;background:#161a2e;font-size:13px}
+#drawer .dseg button[aria-pressed=true]{background:#eef0fa;color:#0c0e1b;font-weight:600}
+#drawer p{font-size:13px;color:#7d83a3;line-height:1.45;margin-top:14px}
+
+/* ============ ANIMACIJE ============ */
+.screen.enter .rise{animation:rise .6s var(--ease-out) both;animation-delay:calc(var(--d,0)*70ms)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}}
+@keyframes fadeOut{to{opacity:0}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}}
+@keyframes sheetUp{from{transform:translateY(100%)}}
+@keyframes tileIn{from{opacity:0;transform:translateY(18px) rotateX(70deg)}}
+@keyframes pop{50%{transform:scale(1.04)}}
+@keyframes bump{50%{transform:scale(1.35)}}
+@keyframes ripple{to{transform:scale(4);opacity:0}}
+@keyframes joinPop{0%{opacity:0;transform:scale(.6)}60%{opacity:1}100%{transform:none}}
+@keyframes breathe{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes winOn{0%{opacity:0}15%{opacity:.8}25%{opacity:.1}40%{opacity:1}55%{opacity:.3}70%{opacity:1}}
+@keyframes winOff{0%{fill:var(--window)}20%{opacity:.2}30%{opacity:1}45%{opacity:.1}60%{opacity:.8}100%{fill:var(--line);opacity:1}}
+@keyframes shine{to{transform:translateX(120%)}}
+@keyframes lockOn{from{transform:scale(1.35);opacity:0}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes resultIn{from{opacity:0;transform:scale(.85) rotateX(40deg)}}
+@keyframes floaty{50%{transform:translateY(-8px)}}
+@keyframes pulse{50%{opacity:.45}}
+@keyframes dropIn{0%{transform:translateY(-26px) scale(.4);opacity:0}100%{transform:none;opacity:1}}
+@keyframes letterUp{from{opacity:0;transform:translateY(40%) rotate(6deg)}to{opacity:1;transform:none}}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+@keyframes ringOut{0%{opacity:.7;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
+@keyframes wave{0%,100%{height:6px}50%{height:24px}}
+@keyframes blink{50%{opacity:0}}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes toastIn{from{opacity:0;transform:translateY(-30px) scale(.95)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-20px)}}
+@keyframes elimAv{0%{transform:none}8%{transform:translateX(-6px) rotate(-3deg)}16%{transform:translateX(6px) rotate(3deg)}24%{transform:translateX(-4px)}32%{transform:none;filter:none}60%{filter:grayscale(1) brightness(.8)}100%{filter:grayscale(1) brightness(.6);transform:translateY(8px) scale(.94);opacity:.75}}
+@keyframes sweep{to{clip-path:circle(150% at 50% 100%)}}
+@keyframes orbRise{from{opacity:0;transform:translateY(180px) scale(.7)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div class="devbar" role="navigation" aria-label="Navigacija prototipa">
+  <span class="tag">Prototip</span>
+  <button data-a="devPrev" aria-label="Prethodni ekran"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"/></svg></button>
+  <button class="cur" data-a="devOpen" id="devCur">Početna</button>
+  <button data-a="devNext" aria-label="Sljedeći ekran"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></svg></button>
+  <button data-a="devOpen" aria-label="Svi ekrani i varijante"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+</div>
+
+<main class="stage">
+  <div class="phone" id="phone" data-theme="night">
+    <canvas id="fx" aria-hidden="true"></canvas>
+    <div id="screen"></div>
+    <div id="layer"></div>
+  </div>
+</main>
+<div id="drawer"></div>
+
+<script>
+/* =====================================================================
+   PODACI (u aplikaciji dolaze s backenda – vidi spec.md)
+   ===================================================================== */
+const ROLES = {
+  'Mafia':     {name:'Mafija',    team:'mafia', color:'var(--role-mafia)',     icon:'hat',    order:1, action:'KILL',
+                short:'Svake noći s timom uklanja jednog igrača.',
+                long:'Svake noći s ostatkom mafije bira jednog igrača kojeg uklanja.'},
+  'Dama':      {name:'Dama',      team:'mafia', color:'var(--role-dama)',      icon:'mask',   order:2, action:'SILENCE',
+                short:'Utišava igrača za idući dan.',
+                long:'Dok je mafija živa, svake noći utiša jednog igrača za idući dan. Kad mafija padne, preuzima ubijanje. Policajcu izgleda nevino dok je mafija živa.'},
+  'Doktor':    {name:'Doktor',    team:'town',  color:'var(--role-doktor)',    icon:'cross',  order:3, action:'SAVE',
+                short:'Svake noći štiti jednog igrača.',
+                long:'Svake noći štiti jednog igrača od napada mafije. Ako dva doktora zaštite istog igrača, on umire od predoziranja.'},
+  'Policajac': {name:'Policajac', team:'town',  color:'var(--role-policajac)', icon:'search', order:4, action:'INVESTIGATE',
+                short:'Provjerava je li igrač mafija.',
+                long:'Svake noći provjerava jednog igrača i saznaje je li mafija.'},
+  'Novinar':   {name:'Novinar',   team:'town',  color:'var(--role-novinar)',   icon:'news',   order:5, action:'COMPARE',
+                short:'Uspoređuje dva igrača.',
+                long:'Svake noći uspoređuje dva igrača i saznaje jesu li u istom timu.'},
+  'Građanin':  {name:'Građanin',  team:'town',  color:'var(--role-gradanin)',  icon:'house',  order:null, action:null,
+                short:'Nema noćnu akciju.',
+                long:'Nema noćnu akciju. Danju raspravlja, traži mafiju i glasa.'}
+};
+const ROLE_KEYS = Object.keys(ROLES);
+
+const PLAYERS = [
+  {id:1, nick:'Niko',  emoji:'😎', hue:350, g:'m', role:'Mafia', host:true},
+  {id:2, nick:'Ana',   emoji:'🦊', hue:22,  g:'f', role:'Dama'},
+  {id:3, nick:'Marko', emoji:'🐺', hue:222, g:'m', role:'Novinar'},
+  {id:4, nick:'Lea',   emoji:'🐱', hue:280, g:'f', role:'Doktor'},
+  {id:5, nick:'Ivan',  emoji:'🐻', hue:32,  g:'m', role:'Mafia'},
+  {id:6, nick:'Petra', emoji:'🌸', hue:330, g:'f', role:'Građanin'},
+  {id:7, nick:'Luka',  emoji:'🐸', hue:120, g:'m', role:'Građanin'},
+  {id:8, nick:'Mia',   emoji:'🦄', hue:262, g:'f', role:'Policajac'}
+];
+// dodatni igrači samo za lobby s više od 8 mjesta
+const EXTRA = [['Toni','🦁',40],['Klara','🦉',190],['Dino','🐙',300],['Sara','🌵',140],['Filip','🎲',0],['Iva','👻',240],['Ante','🍕',15],['Maja','🐼',200],['Bruno','🐢',100],['Nina','🌙',250],['Leon','🦈',210],['Ema','🍓',345]]
+  .map(([nick,emoji,hue],i)=>({id:100+i,nick,emoji,hue,g:'m'}));
+const LOBBY_PEOPLE = [...PLAYERS, ...EXTRA];
+
+const EMOJIS = ['😎','🦊','🐺','🐱','🐻','🌸','🐸','🦄','🦉','🐙','🦁','🐼','🌵','🍕','🎲','👻'];
+
+const ROOMS = [
+  {host:'Ana',   emoji:'🦊', hue:22,  mode:'online', n:5, max:8,  roles:{Mafia:2,Doktor:1,Policajac:1,'Građanin':4}},
+  {host:'Toni',  emoji:'🦁', hue:40,  mode:'live',   n:3, max:6,  roles:{Mafia:1,Dama:1,Doktor:1,'Građanin':3}},
+  {host:'Klara', emoji:'🦉', hue:190, mode:'online', n:9, max:12, roles:{Mafia:3,Dama:1,Doktor:2,Policajac:1,Novinar:1,'Građanin':4}},
+  {host:'Dino',  emoji:'🐙', hue:300, mode:'online', n:8, max:8,  roles:{Mafia:2,Dama:1,Doktor:1,Policajac:1,Novinar:1,'Građanin':2}}
+];
+
+// demo: koga bi tko izbacio (redoslijed želja) – koristi se za simulaciju glasanja
+const VOTE_PREF = {1:[4,8,7],2:[4,7,8],3:[1,2],4:[1,2],5:[4,7],6:[1,5],7:[4,1],8:[1,2]};
+// demo: koga mafija ubija u kojoj noći ako ti nisi mafija
+const KILL_PREF = [6,3,8,7,4,1];
+const SIL_PREF  = [4,8,7,3];
+
+/* =====================================================================
+   STANJE
+   ===================================================================== */
+const S = {
+  screen:'home', overlay:null, history:[], entered:null,
+  nick:'Niko', emoji:'😎', emojiOpen:false,
+  mode:'live', visibility:'private', voice:true, maxPlayers:8,
+  counts:{'Mafia':2,'Dama':1,'Doktor':1,'Policajac':1,'Novinar':1,'Građanin':2},
+  roomFilter:'all', joined:5, codeErr:null,
+  meId:1, waiting:false, winnerOverride:null,
+  revealOpen:false, ready:false, readyN:0,
+  round:2, dead:{}, lastNight:{killed:[],silenced:[]},
+  night:{step:'pick', sel:[], result:null},
+  vote:null, elim:null, narr:null, timer:150
+};
+
+/* =====================================================================
+   POMOĆNE FUNKCIJE
+   ===================================================================== */
+const $ = (s,r=document)=>r.querySelector(s);
+const PH = document.getElementById('phone');
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let TIMERS = [];
+const later = (fn,ms)=>{const t=setTimeout(fn,RM?Math.min(ms,80):ms);TIMERS.push(t);return t};
+const clearTimers = ()=>{TIMERS.forEach(clearTimeout);TIMERS=[];clearInterval(S._tick);clearInterval(S._type)};
+const P = id=>LOBBY_PEOPLE.find(p=>p.id===id);
+const me = ()=>P(S.meId);
+const isAlive = id=>!(id in S.dead);
+const alive = ()=>PLAYERS.filter(p=>isAlive(p.id));
+const gx = (p,m,f)=>p.g==='f'?f:m;
+const R = key=>ROLES[key];
+const teamOf = p=>R(p.role).team;
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const silencedNow = id=>S.lastNight.silenced.includes(id) && ['day','vote'].includes(S.screen);
+
+const ICONS = {
+  hat:'<path d="M3 15.5c0 1.6 4 2.9 9 2.9s9-1.3 9-2.9"/><path d="M5.6 15.2 7.1 8c.3-1.4 1.7-2.2 3-1.7l1.9.6 1.9-.6c1.3-.5 2.7.3 3 1.7l1.5 7.2"/><path d="M6.4 12.2c3.6 1.1 7.6 1.1 11.2 0"/>',
+  mask:'<path d="M2.5 9.5C2.5 8.1 3.6 7 5 7c2 0 3.5 1.2 7 1.2S17 7 19 7c1.4 0 2.5 1.1 2.5 2.5 0 4.2-2.6 7.5-5.6 7.5-1.9 0-2.9-1.6-3.9-1.6s-2 1.6-3.9 1.6c-3 0-5.6-3.3-5.6-7.5Z"/><path d="M6.5 11.5c.9-.8 2.3-.8 3.2 0M14.3 11.5c.9-.8 2.3-.8 3.2 0"/>',
+  cross:'<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8.5v7M8.5 12h7"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  news:'<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/>',
+  house:'<path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1Z"/>',
+  moon:'<path d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.8 6.8 0 0 0 10.7 10.7Z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 16.5v-5M12 8h.01"/>',
+  back:'<path d="M15 18.5 8.5 12 15 5.5"/>',
+  copy:'<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
+  check:'<path d="M20 6.5 9.5 17 4 11.5"/>',
+  share:'<path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5v6A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5v-6"/>',
+  refresh:'<path d="M20 11.5A8 8 0 0 0 6 6.6L4 8.5"/><path d="M4 4v4.5h4.5"/><path d="M4 12.5a8 8 0 0 0 14 4.9l2-1.9"/><path d="M20 20v-4.5h-4.5"/>',
+  lock:'<rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  users:'<path d="M16 20.5v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1.5"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M21 20.5v-1.5a4 4 0 0 0-3-3.9M15.5 4.1a3.5 3.5 0 0 1 0 6.8"/>',
+  crown:'<path d="M3.5 8.5 7.5 12 12 5.5l4.5 6.5 4-3.5-1.8 9.5H5.3Z"/>',
+  skull:'<path d="M12 3a7.5 7.5 0 0 0-4.5 13.5V19a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-2.5A7.5 7.5 0 0 0 12 3Z"/><circle cx="9.2" cy="11.5" r="1.3"/><circle cx="14.8" cy="11.5" r="1.3"/><path d="M10.5 20v-2M13.5 20v-2"/>',
+  mute:'<path d="M11 5 6.5 9H3v6h3.5L11 19Z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>',
+  volume:'<path d="M11 5 6.5 9H3v6h3.5L11 19Z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
+  eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>',
+  replay:'<path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  minus:'<path d="M5 12h14"/>',
+  edit:'<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5l-4 1 1-4Z"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  chat:'<path d="M20.5 12a8.5 8.5 0 0 1-12.4 7.5L3.5 20.5l1-4.6A8.5 8.5 0 1 1 20.5 12Z"/>',
+  phone:'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+  ghost:'<path d="M5 20.5V11a7 7 0 0 1 14 0v9.5l-2.3-1.6-2.4 1.6-2.3-1.6-2.3 1.6-2.4-1.6Z"/><path d="M9.5 10.5v1.5M14.5 10.5v1.5"/>',
+  wifioff:'<path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5.2-2.8M19 13a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.7-2.9M22 8.8A15 15 0 0 0 10.7 5"/><path d="M12 20h.01"/>',
+  shield:'<path d="M12 21s7.5-3.5 7.5-9.5V5.5L12 3 4.5 5.5v6C4.5 17.5 12 21 12 21Z"/>',
+  vote:'<path d="M9 12.5 11 14.5 15.5 10"/><rect x="3.5" y="3.5" width="17" height="17" rx="4"/>'
+};
+function icon(n,s=20,sw=1.8){return `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`}
+
+function avatar(p,size=48,o={}){
+  const cls=['av'];
+  if(o.dead) cls.push('is-dead');
+  if(o.sel) cls.push('is-sel');
+  if(o.extra) cls.push(o.extra);
+  let b='';
+  if(o.host) b+=`<span class="badge b-host" title="Domaćin">${icon('crown',12,2)}</span>`;
+  if(o.muted) b+=`<span class="badge b-mute" title="Utišan">${icon('mute',12,2)}</span>`;
+  return `<span class="${cls.join(' ')}" style="--s:${size}px;--h:${p.hue}" aria-hidden="true">${p.emoji}${b}</span>`;
+}
+const roleIcon = (key,s=40)=>`<span class="ricon" style="--s:${s}px;--rc:${R(key).color}">${icon(R(key).icon,Math.round(s*.5))}</span>`;
+const roleChip = key=>`<span class="rchip" style="--rc:${R(key).color}">${icon(R(key).icon,16)}${R(key).name}</span>`;
+const compMini = counts=>`<div class="comp-mini">${ROLE_KEYS.filter(k=>counts[k]).map(k=>`<span style="color:${R(k).color}" title="${R(k).name}">${icon(R(k).icon,15)}<b>${counts[k]}</b></span>`).join('')}</div>`;
+const comp = counts=>`<div class="comp">${ROLE_KEYS.filter(k=>counts[k]).map(k=>`<span class="ci" title="${R(k).name}">${roleIcon(k,26)}${counts[k]}</span>`).join('')}</div>`;
+const deadText = p=>{const d=S.dead[p.id]; if(!d) return ''; return d.how==='kill'?`${gx(p,'Ubijen','Ubijena')} u noći ${d.round}`:`${gx(p,'Izbačen','Izbačena')} u danu ${d.round}`};
+
+/* ---------- Silueta grada: svaki igrač = jedan prozor ---------- */
+const BLD=[[0,40,62],[38,30,96],[66,46,78],[110,26,118],[134,50,88],[182,34,108],[214,44,72],[256,30,124],[284,48,86],[330,30,104],[358,32,70]];
+function skyline(list,stateOf){
+  let seed=11; const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;
+  let deco='';
+  BLD.forEach(([x,w,h])=>{for(let y=140-h+10;y<134;y+=10)for(let xx=x+5;xx<x+w-6;xx+=8){const r=rnd(); if(r<.13) deco+=`<rect class="dw" x="${xx}" y="${y}" width="3" height="5" opacity="${(.12+r*2.2).toFixed(2)}"/>`}});
+  const pw=list.map((p,i)=>{const [x,w,h]=BLD[(i*4+1)%11]; const row=Math.floor(i/11); return `<rect class="pw ${stateOf(p)}" data-pw="${p.id}" x="${x+w/2-4.5}" y="${140-h+14+row*22}" width="9" height="12" rx="1.5"/>`}).join('');
+  return `<svg class="skyline" viewBox="0 0 390 140" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><defs><filter id="winglow" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g class="bld">${BLD.map(([x,w,h])=>`<rect x="${x}" y="${140-h}" width="${w}" height="${h}"/>`).join('')}</g>${deco}${pw}</svg>`;
+}
+const gameSky = ()=>skyline(PLAYERS,p=>isAlive(p.id)?'on':'off');
+
+/* =====================================================================
+   EKRANI  (svaki odgovara jednoj React stranici)
+   ===================================================================== */
+const SCREEN_META = [
+  ['home','Početna'],['rooms','Javne sobe'],['create','Nova soba'],['lobby','Lobby'],
+  ['role','Otkrivanje uloge'],['night','Noć'],['day','Dan'],['vote','Glasanje'],['end','Kraj igre']
+];
+const OVERLAY_META = [['narr','Naracija'],['join','Uđi s kodom'],['rules','Pravila'],['reconnect','Ponovno spajanje'],['elim','Izbacivanje'],['phase','Prijelaz noć → dan']];
+
+const SCREENS = {};
+
+/* 1. POČETNA */
+SCREENS.home = ()=>`
+<div class="screen has-sky">
+  <div class="sky-moon"></div>
+  <div class="top"><span class="grow"></span><button class="icon-btn" data-a="overlay" data-v="rules" aria-label="Pravila igre">${icon('info',22)}</button></div>
+  <div class="body">
+    <div class="hero">
+      <h1 class="wordmark rise" style="--d:1"><small>AI</small>Mafija</h1>
+      <p class="lede rise" style="--d:2">Mafija s AI naratorom. Igrajte uživo za istim stolom ili svatko sa svog mobitela.</p>
+    </div>
+    <div class="identity rise" style="--d:3">
+      <button class="av av-pick" style="--h:350" data-a="emojiOpen" aria-label="Promijeni avatar" aria-expanded="${S.emojiOpen}">${S.emoji}<span class="badge b-edit">${icon('edit',12,2)}</span></button>
+      <div class="field grow"><label for="nick">Tvoj nadimak</label><input id="nick" class="input" value="${esc(S.nick)}" maxlength="16" autocomplete="nickname" data-input="nick"></div>
+    </div>
+    ${S.emojiOpen?`<div class="emoji-grid" role="radiogroup" aria-label="Odaberi avatar">${EMOJIS.map(e=>`<button role="radio" aria-pressed="${e===S.emoji}" aria-checked="${e===S.emoji}" data-a="pickEmoji" data-v="${e}">${e}</button>`).join('')}</div>`:''}
+  </div>
+  <div class="city">${skyline(LOBBY_PEOPLE.slice(0,8),(p)=>[1,3,4,6,8].includes(p.id)?'on':'off')}</div><footer class="cta rise" style="--d:4">
+    <button class="btn btn-primary" data-a="go" data-v="create">Kreiraj sobu</button>
+    <div class="row2">
+      <button class="btn btn-secondary" data-a="overlay" data-v="join">Uđi s kodom</button>
+      <button class="btn btn-ghost" data-a="go" data-v="rooms">Javne sobe</button>
+    </div>
+  </footer>
+</div>`;
+
+/* 2. JAVNE SOBE */
+SCREENS.rooms = ()=>{
+  const list = ROOMS.filter(r=>S.roomFilter==='all'||r.mode===S.roomFilter);
+  return `
+<div class="screen">
+  <div class="top">
+    <button class="icon-btn" data-a="back" aria-label="Natrag">${icon('back',22)}</button>
+    <h2 class="grow">Javne sobe</h2>
+    <button class="icon-btn" data-a="refreshRooms" aria-label="Osvježi popis" id="refBtn">${icon('refresh',20)}</button>
+  </div>
+  <div class="body">
+    <div class="seg rise" style="--d:0;margin-bottom:16px" role="group" aria-label="Način igre">
+      ${[['all','Sve'],['live','Uživo'],['online','Online']].map(([v,l])=>`<button aria-pressed="${S.roomFilter===v}" data-a="roomFilter" data-v="${v}">${l}</button>`).join('')}
+    </div>
+    ${list.length?list.map((r,i)=>{const full=r.n>=r.max; return `
+    <article class="card room rise" style="--d:${i+1}">
+      ${avatar({emoji:r.emoji,hue:r.hue},44)}
+      <div>
+        <h4>${r.host}</h4>
+        <div class="meta">
+          <span class="chip">${icon(r.mode==='live'?'users':'globe',15)}${r.mode==='live'?'Uživo':'Online'}</span>
+          <span class="chip" style="font-variant-numeric:tabular-nums">${r.n} od ${r.max}</span>
+        </div>
+      </div>
+      <button class="btn ${full?'btn-ghost':'btn-primary'} btn-sm" ${full?'disabled':''} data-a="joinRoom">${full?'Puna':'Uđi'}</button>
+      <div class="foot">
+        <div class="seats" aria-label="${r.n} od ${r.max} mjesta zauzeto">${Array.from({length:r.max},(_,k)=>`<i class="${k<r.n?'f':''}"></i>`).join('')}</div>
+        ${compMini(r.roles)}
+      </div>
+    </article>`}).join(''):`
+    <div class="empty"><h4>Trenutno nema ${S.roomFilter==='live'?'soba uživo':'online soba'}</h4><p class="fine">Kreiraj svoju sobu i pozovi prijatelje kodom.</p><div style="height:16px"></div><button class="btn btn-secondary" data-a="go" data-v="create">Kreiraj sobu</button></div>`}
+  </div>
+</div>`};
+
+/* 3. NOVA SOBA (postavke) */
+SCREENS.create = ()=>{
+  const sum = ROLE_KEYS.reduce((a,k)=>a+S.counts[k],0);
+  const diff = S.maxPlayers-sum;
+  const mafia = S.counts.Mafia+S.counts.Dama, town = sum-mafia;
+  const sumLine = diff===0
+    ? `<div class="sum ok">${icon('check',18,2.2)}Sve uloge su raspoređene</div>`
+    : diff>0
+      ? `<div class="sum bad">${icon('info',18)}Fali još ${diff} ${diff===1?'uloga':diff<5?'uloge':'uloga'}<span class="grow"></span><button class="link-btn" data-a="fillTown">Popuni građanima</button></div>`
+      : `<div class="sum bad">${icon('info',18)}Previše uloga: makni ${-diff}</div>`;
+  return `
+<div class="screen">
+  <div class="top">
+    <button class="icon-btn" data-a="back" aria-label="Natrag">${icon('back',22)}</button>
+    <h2 class="grow">Nova soba</h2>
+  </div>
+  <div class="body">
+    <section class="section rise" style="--d:0">
+      <div class="section-head"><h3>Broj igrača</h3><span>od 4 do 20</span></div>
+      <div class="card big-step">
+        <span class="n" id="maxN">${S.maxPlayers}</span>
+        <div class="stepper">
+          <button data-a="step" data-v="max:-1" aria-label="Manje igrača" ${S.maxPlayers<=4?'disabled':''}>${icon('minus',20,2)}</button>
+          <button data-a="step" data-v="max:1" aria-label="Više igrača" ${S.maxPlayers>=20?'disabled':''}>${icon('plus',20,2)}</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section rise" style="--d:1">
+      <div class="section-head"><h3>Uloge</h3><span>${sum} od ${S.maxPlayers}</span></div>
+      <div class="card" style="padding:4px 16px">
+        ${ROLE_KEYS.map(k=>`
+        <div class="role-row">
+          ${roleIcon(k,40)}
+          <div class="grow"><h4>${R(k).name}${R(k).team==='mafia'?'<span class="team-tag">tim mafije</span>':''}</h4><p>${R(k).short}</p></div>
+          <div class="stepper">
+            <button data-a="step" data-v="${k}:-1" aria-label="Manje: ${R(k).name}" ${S.counts[k]<=(k==='Mafia'?1:0)?'disabled':''}>${icon('minus',18,2)}</button>
+            <output data-out="${k}" aria-live="polite">${S.counts[k]}</output>
+            <button data-a="step" data-v="${k}:1" aria-label="Više: ${R(k).name}">${icon('plus',18,2)}</button>
+          </div>
+        </div>`).join('')}
+      </div>
+      <div class="balance" aria-label="Omjer timova">
+        <div class="bar"><i style="flex-grow:${mafia};background:var(--role-mafia)"></i><i style="flex-grow:${town};background:var(--role-gradanin)"></i></div>
+        <div class="lbl"><span>Mafija ${mafia}</span><span>Građani ${town}</span></div>
+      </div>
+      <p class="fine" style="margin-top:8px">Igra je najzanimljivija kad je u timu mafije otprilike četvrtina do trećina igrača.</p>
+    </section>
+
+    <section class="section rise" style="--d:2">
+      <div class="section-head"><h3>Način igre</h3></div>
+      <div class="opt-grid">
+        <button class="opt" aria-pressed="${S.mode==='live'}" data-a="set" data-v="mode:live">${icon('users',22)}<h4>Uživo</h4><p>Svi ste u istoj prostoriji. Narator govori s domaćinova mobitela.</p></button>
+        <button class="opt" aria-pressed="${S.mode==='online'}" data-a="set" data-v="mode:online">${icon('globe',22)}<h4>Online</h4><p>Svatko igra sa svog mjesta i čuje naratora na svom mobitelu.</p></button>
+      </div>
+    </section>
+
+    <section class="section rise" style="--d:3">
+      <div class="section-head"><h3>Tko može ući</h3></div>
+      <div class="seg" role="group" aria-label="Vidljivost sobe">
+        <button aria-pressed="${S.visibility==='private'}" data-a="set" data-v="visibility:private">Samo s kodom</button>
+        <button aria-pressed="${S.visibility==='public'}" data-a="set" data-v="visibility:public">Svi (javna)</button>
+      </div>
+    </section>
+
+    <section class="section rise" style="--d:4">
+      <div class="card set-row">
+        <div class="grow"><h4>Glas naratora</h4><p class="fine">${S.mode==='live'?'Čuje se samo s tvog mobitela da ne bude jeke.':'Svaki igrač čuje naratora na svom mobitelu.'}</p></div>
+        <button class="switch" role="switch" aria-checked="${S.voice}" aria-label="Glas naratora" data-a="toggleVoice"></button>
+      </div>
+    </section>
+  </div>
+  <footer class="cta" style="border-top:1px solid var(--line);background:var(--bg)">
+    ${sumLine}
+    <button class="btn btn-primary" ${diff!==0?'disabled':''} data-a="createRoom">Kreiraj sobu</button>
+  </footer>
+</div>`};
+
+/* 4. LOBBY */
+SCREENS.lobby = ()=>{
+  const people = LOBBY_PEOPLE.slice(0,S.maxPlayers);
+  const joined = people.slice(0,S.joined);
+  const full = S.joined>=S.maxPlayers;
+  const amHost = S.meId===1;
+  const code='K7M2QX';
+  return `
+<div class="screen has-sky">
+  <div class="top">
+    <button class="icon-btn" data-a="go" data-v="home" aria-label="Napusti sobu">${icon('back',22)}</button>
+    <h2 class="grow">Soba</h2>
+    <button class="icon-btn" data-a="overlay" data-v="rules" aria-label="Pravila igre">${icon('info',22)}</button>
+  </div>
+  <div class="body">
+    <div class="code-block">
+      <div class="lbl rise" style="--d:0">Kod sobe</div>
+      <div class="code" aria-label="Kod sobe ${code.split('').join(' ')}">${code.split('').map((c,i)=>`<span style="--i:${i}">${c}</span>`).join('')}</div>
+      <div class="code-actions rise" style="--d:3">
+        <button class="btn btn-secondary" data-a="copyCode" id="copyBtn">${icon('copy',17)}<span>Kopiraj kod</span></button>
+        <button class="btn btn-secondary" data-a="noop">${icon('share',17)}Pozovi</button>
+      </div>
+      <div class="badges rise" style="--d:4">
+        <span class="chip">${icon(S.visibility==='private'?'lock':'globe',15)}${S.visibility==='private'?'Privatna':'Javna'}</span>
+        <span class="chip">${icon(S.mode==='live'?'users':'globe',15)}${S.mode==='live'?'Uživo':'Online'}</span>
+        <span class="chip">${icon(S.voice?'volume':'mute',15)}${S.voice?'Narator s glasom':'Narator bez glasa'}</span>
+      </div>
+    </div>
+
+    <section class="section rise" style="--d:5">
+      <div class="section-head"><h3>Igrači</h3><span id="joinedN">${S.joined} od ${S.maxPlayers}</span></div>
+      <div class="pgrid" id="pgrid">
+        ${people.map((p,i)=>i<S.joined?slotHTML(p):`<div class="pslot vacant" data-slot="${p.id}"><span class="dot"></span>Čeka se igrač</div>`).join('')}
+      </div>
+      <p class="fine" style="margin-top:10px">Svaki igrač pali jedno svjetlo u gradu.</p>
+    </section>
+
+    <section class="section rise" style="--d:6">
+      <div class="section-head"><h3>Uloge u igri</h3></div>
+      ${comp(S.counts)}
+    </section>
+  </div>
+  <div class="city">${skyline(people,p=>joined.includes(p)?'on':'empty')}</div><footer class="cta" id="lobbyCta">${lobbyCta(full,amHost)}</footer>
+</div>`};
+function slotHTML(p,isNew){
+  return `<div class="pslot ${isNew?'joined':''}" data-slot="${p.id}">${avatar(p,42,{host:p.host})}<div style="min-width:0"><div class="nm">${p.nick}${p.id===S.meId?'<span class="me-tag">ti</span>':''}</div><div class="sub">${p.host?'Domaćin':'Spreman'}</div></div></div>`;
+}
+function lobbyCta(full,amHost){
+  if(amHost) return `<button class="btn btn-primary" ${full?'':'disabled'} data-a="startGame">${full?'Pokreni igru':`Čeka se još ${S.maxPlayers-S.joined}`}</button>${full?'':`<button class="btn proto" data-a="fillLobby">Popuni sobu</button>`}`;
+  return `<div class="fine" style="text-align:center;padding:8px 0 4px">Igru pokreće domaćin kad se svi pridruže.</div><button class="btn proto" data-a="startGame">Domaćin pokreće</button>`;
+}
+
+/* 5. OTKRIVANJE ULOGE */
+SCREENS.role = ()=>{
+  const m = me(), r = R(m.role);
+  const mates = r.team==='mafia' ? PLAYERS.filter(p=>p.id!==m.id && teamOf(p)==='mafia') : [];
+  const hold = S.mode==='live';
+  return `
+<div class="screen">
+  <div class="top"><span class="grow"></span><button class="icon-btn" data-a="overlay" data-v="rules" aria-label="Pravila igre">${icon('info',22)}</button></div>
+  <div class="body">
+    <div class="reveal">
+      <p class="muted rise" style="--d:0">Igra počinje. Tvoja uloga je tajna.</p>
+      <div class="flip rise ${S.revealOpen?'is-open':''}" style="--d:1;--rc:${r.color}" id="flip" data-flip="${hold?'hold':'tap'}" tabindex="0" role="button" aria-label="${hold?'Drži za prikaz uloge':'Dodirni za prikaz uloge'}">
+        <div class="flip-in">
+          <div class="face back">
+            <svg class="pattern" viewBox="0 0 270 378" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${cardPattern()}</svg>
+            <div class="seal">${icon('eye',30,1.6)}</div>
+            <div class="hint">${hold?'Drži za prikaz':'Dodirni za prikaz'}</div>
+          </div>
+          <div class="face front">
+            ${roleIcon(m.role,84)}
+            <h3>${r.name}</h3>
+            <div class="team">${r.team==='mafia'?'Tim mafije':'Tim građana'}</div>
+            <p>${r.long}</p>
+            ${mates.length?`<div class="mates">${mates.map(p=>`<span class="chip" style="height:32px;padding-left:4px">${avatar(p,24)}${p.nick} <span style="color:${R(p.role).color}">${R(p.role).name}</span></span>`).join('')}</div>`:''}
+          </div>
+        </div>
+      </div>
+      <p class="fine rise" style="--d:2;max-width:30ch">${hold?'Uloga se vidi samo dok držiš prst na kartici, da je susjedi ne vide.':'Dodirni ponovno za skrivanje.'}</p>
+    </div>
+  </div>
+  <footer class="cta rise" style="--d:3" id="roleCta">${roleCta()}</footer>
+</div>`};
+function roleCta(){
+  if(!S.ready) return `<button class="btn btn-primary btn-hold" data-hold="ready">Spreman sam</button><p class="fine" style="text-align:center">Drži gumb da potvrdiš.</p>`;
+  return `<div style="text-align:center"><div class="fine" id="readyTxt">Spremno ${S.readyN} od 8</div><div class="ready-dots">${PLAYERS.map((_,i)=>`<i class="${i<S.readyN?'on':''}"></i>`).join('')}</div></div>`;
+}
+function cardPattern(){
+  let s=3,out=''; const rnd=()=>(s=(s*9301+49297)%233280)/233280;
+  const b=[[0,60,150],[56,44,210],[96,70,170],[162,40,240],[198,72,190]];
+  b.forEach(([x,w,h])=>{out+=`<rect x="${x}" y="${378-h}" width="${w}" height="${h}" fill="var(--surface-2)"/>`;for(let y=378-h+12;y<370;y+=14)for(let xx=x+8;xx<x+w-8;xx+=12){const r=rnd(); out+=`<rect x="${xx}" y="${y}" width="5" height="7" fill="${r<.18?'var(--window)':'var(--line)'}" opacity="${r<.18?.75:.6}"/>`}});
+  return out;
+}
+
+/* 6. NOĆ */
+SCREENS.night = ()=>{
+  const m = me(), r = R(m.role);
+  let main='', footer='';
+  const head = `<div class="top"><div class="phase-title grow">${icon('moon',22)}Noć ${S.round}</div><button class="icon-btn" data-a="peekRole" aria-label="Pogledaj svoju ulogu">${icon('eye',22)}</button></div>`;
+
+  if(!isAlive(m.id)){ // promatrač
+    main = `<div class="sleep">${`<div class="ghost-ic">${icon('ghost',40,1.6)}</div>`}<h3>Promatraš igru</h3><p>${deadText(m)}. Ne govori i ne otkrivaj uloge dok igra ne završi.</p></div>`;
+    footer = `<button class="btn proto" data-a="resolveNight">Jutro</button>`;
+  } else if(!r.action || S.waiting){
+    const live = S.mode==='live';
+    main = `<div class="sleep"><div class="big-moon"><i></i></div><h3>Grad spava</h3><p>${!r.action?'Nemaš noćnu akciju.':'Probudit ćeš se kad narator prozove tvoju ulogu.'} ${live?'Zatvori oči i spusti mobitel ekranom prema dolje.':'Pričekaj naratora.'}</p><div class="zz"><i></i><i></i><i></i></div></div>`;
+    footer = `<button class="btn proto" data-a="${r.action?'stopWaiting':'resolveNight'}">${r.action?'Moj red':'Jutro'}</button>`;
+  } else if(S.night.step==='sent'){
+    main = `<div class="sent"><div class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6.5 9.5 17 4 11.5"/></svg></div><h3>Potez je poslan</h3><p class="lede">Zatvori oči. Narator će probuditi sljedeću ulogu.</p></div>`;
+    footer = `<button class="btn proto" data-a="resolveNight">Jutro</button>`;
+  } else if(S.night.step==='result'){
+    main = nightResult();
+    footer = `<button class="btn btn-secondary" data-a="sendDone">Gotovo, spavam</button>`;
+  } else {
+    const cfg = nightCfg(m);
+    const sel = S.night.sel.map(P);
+    main = `
+      <span class="turn rise" style="--d:0;--rc:${r.color}"><span class="ric">${icon(r.icon,13,2)}</span>Tvoj red: ${r.name}</span>
+      <h3 class="prompt rise" style="--d:1">${cfg.q}</h3>
+      <p class="prompt-sub rise" style="--d:2">${cfg.sub}</p>
+      <div class="tgrid rise" style="--d:3">${cfg.list.map(t=>nightTile(t,cfg)).join('')}</div>`;
+    const need = cfg.need, ok = sel.length===need;
+    footer = `
+      <div class="target-line">${ok?`${cfg.verb} <b>${sel.map(p=>p.nick).join(' i ')}</b>`:(need===2?`Odaberi još ${need-sel.length}`:'Odaberi igrača')}</div>
+      <button class="btn btn-primary btn-hold" data-hold="nightConfirm" ${ok?'':'disabled'}>Drži za potvrdu</button>`;
+  }
+  return `<div class="screen has-sky">${head}<div class="body">${main}</div><div class="city">${gameSky()}</div><footer class="cta">${footer}</footer></div>`;
+};
+function mafiaTarget(){ // koga je mafija odabrala (za Damu i za prikaz suigrača)
+  return KILL_PREF.find(id=>isAlive(id) && teamOf(P(id))!=='mafia');
+}
+function nightCfg(m){
+  const others = alive();
+  const mafiaAlive = alive().some(p=>p.role==='Mafia');
+  switch(m.role){
+    case 'Mafia': return {need:1, verb:'Meta:', q:'Koga mafija uklanja večeras?', sub:'Tvoj tim vidi tvoj odabir. Odluka postaje konačna kad svi iz mafije potvrde.',
+      list:others.filter(p=>p.id!==m.id), off:p=>teamOf(p)==='mafia'?'Tvoj tim':null,
+      picker:p=>{const mate=alive().find(x=>x.role==='Mafia'&&x.id!==m.id); return mate && p.id===mafiaTarget()?mate:null}};
+    case 'Dama': if(!mafiaAlive) return {need:1, verb:'Meta:', q:'Mafije više nema. Koga uklanjaš?', sub:'Preuzela si ulogu mafije i noćas biraš žrtvu.', list:others.filter(p=>p.id!==m.id), off:()=>null};
+      return {need:1, verb:'Utišavaš:', q:'Koga utišavaš za sutra?', sub:'Utišani igrač tijekom dana ne smije govoriti, ali može glasati.',
+      list:others.filter(p=>p.id!==m.id), off:p=>teamOf(p)==='mafia'?'Mafija':(p.id===mafiaTarget()?'Meta mafije':null)};
+    case 'Doktor': return {need:1, verb:'Štitiš:', q:'Koga štitiš noćas?', sub:'Možeš zaštititi i sebe. Ako mafija napadne baš tog igrača, preživjet će.',
+      list:others, off:()=>null};
+    case 'Policajac': return {need:1, verb:'Istražuješ:', q:'Koga istražuješ?', sub:'Odmah ćeš saznati je li taj igrač mafija.',
+      list:others.filter(p=>p.id!==m.id), off:()=>null};
+    case 'Novinar': return {need:2, verb:'Uspoređuješ:', q:'Koja dva igrača uspoređuješ?', sub:'Saznat ćeš jesu li u istom timu, ali ne i u kojem.',
+      list:others.filter(p=>p.id!==m.id), off:()=>null};
+  }
+}
+function nightTile(p,cfg){
+  const tag = cfg.off(p), sel = S.night.sel.includes(p.id), picker = cfg.picker?cfg.picker(p):null;
+  return `<button class="ptile ${tag?'is-off has-tag':''} ${sel?'is-sel':''}" data-a="nightPick" data-v="${p.id}" aria-pressed="${sel}" ${tag?'aria-disabled="true"':''}>
+    ${tag?`<span class="tag">${tag}</span>`:''}<span class="lock"></span>${avatar(p,46,{sel})}<span class="nm">${p.id===S.meId?'Ti':p.nick}</span>
+    ${picker?`<span class="picker">${avatar(picker,16)}${picker.nick}</span>`:''}</button>`;
+}
+function nightResult(){
+  const res = S.night.result;
+  if(res.type==='INVESTIGATE'){
+    const t=P(res.ids[0]), maf=res.value==='MAFIA', rc=maf?'var(--role-mafia)':'var(--role-policajac)';
+    return `<h3 class="prompt">Rezultat istrage</h3><div class="result" style="--rc:${rc}"><div class="pair">${avatar(t,72)}</div><h4>${t.nick} ${maf?'je mafija':'nije mafija'}</h4><p>${maf?'Pazi kome ovo otkrivaš.':'Barem prema onome što si vidio noćas.'}</p></div>`;
+  }
+  const [a,b]=res.ids.map(P), same=res.value==='ISTI_TIM', rc=same?'var(--role-novinar)':'var(--accent)';
+  return `<h3 class="prompt">Rezultat usporedbe</h3><div class="result" style="--rc:${rc}"><div class="pair">${avatar(a,64)}<span class="op">${same?'=':'≠'}</span>${avatar(b,64)}</div><h4>${same?'Isti tim':'Različiti timovi'}</h4><p>${a.nick} i ${b.nick} ${same?'igraju za istu stranu.':'nisu na istoj strani. Jedno od njih je u timu mafije.'}</p></div>`;
+}
+
+/* 7. DAN */
+SCREENS.day = ()=>{
+  const m = me(), ln = S.lastNight;
+  const amHost = S.meId===1, iAmSilenced = ln.silenced.includes(m.id) && isAlive(m.id);
+  const rows = [
+    ...ln.killed.map(id=>{const p=P(id); return `<div class="report-row">${avatar(p,44,{dead:true})}<div class="grow"><h4>${p.nick}</h4><p>${gx(p,'Ubijen','Ubijena')} noćas</p></div>${icon('skull',20)}</div>`}),
+    ...ln.silenced.filter(isAlive).map(id=>{const p=P(id); return `<div class="report-row">${avatar(p,44,{muted:true})}<div class="grow"><h4>${p.nick}</h4><p>${gx(p,'Utišan','Utišana')} do kraja dana</p></div>${icon('mute',20)}</div>`})
+  ];
+  if(!ln.killed.length) rows.unshift(`<div class="report-row"><span class="ricon" style="--s:44px;--rc:var(--role-doktor)">${icon('shield',22)}</span><div class="grow"><h4>Nitko nije stradao</h4><p>Netko je noćas imao zaštitu.</p></div></div>`);
+  const al = alive(), dead = PLAYERS.filter(p=>!isAlive(p.id));
+  return `
+<div class="screen has-sky">
+  <div class="top"><div class="phase-title grow">${icon('sun',22)}Dan ${S.round}</div><button class="icon-btn" data-a="peekRole" aria-label="Pogledaj svoju ulogu">${icon('eye',22)}</button></div>
+  <div class="body">
+    ${iAmSilenced?`<div class="banner rise" style="--d:0">${icon('mute',22)}<div><h4>${gx(m,'Utišan','Utišana')} si</h4><p>Danas ne smiješ govoriti ni pisati, ali možeš glasati.</p></div></div>`:''}
+    ${!isAlive(m.id)?`<div class="banner rise" style="--d:0">${icon('ghost',22)}<div><h4>Promatraš igru</h4><p>${deadText(m)}. Ne otkrivaj uloge.</p></div></div>`:''}
+    <section class="section rise" style="--d:1"><div class="section-head"><h3>Što se dogodilo noćas</h3></div><div class="card report">${rows.join('')}</div></section>
+    <section class="section rise" style="--d:2">
+      <div class="card timer">
+        <div class="ring"><svg viewBox="0 0 64 64"><circle class="tr" cx="32" cy="32" r="28"/><circle class="pr" id="ringPr" cx="32" cy="32" r="28" stroke-dasharray="175.9" stroke-dashoffset="${175.9*(1-S.timer/150)}"/></svg><b id="timerTxt">${fmt(S.timer)}</b></div>
+        <div class="grow"><h4>Rasprava</h4><p class="fine">Tko se ponašao sumnjivo?</p>${amHost?`<div class="tbtns"><button class="btn btn-secondary" data-a="timerAdd">+30 s</button><button class="btn btn-secondary" data-a="startVote">Preskoči</button></div>`:''}</div>
+      </div>
+    </section>
+    <section class="section rise" style="--d:3">
+      <div class="section-head"><h3>U igri</h3><span>${al.length} od ${PLAYERS.length}</span></div>
+      <div class="plist">${al.map(p=>`<div class="pl">${avatar(p,40,{host:p.host,muted:ln.silenced.includes(p.id)})}<div class="grow"><div class="nm">${p.nick}${p.id===S.meId?'<span class="me-tag">ti</span>':''}</div>${ln.silenced.includes(p.id)?`<div class="st">${gx(p,'Utišan','Utišana')}</div>`:''}</div></div>`).join('')}</div>
+      ${dead.length?`<p class="fine" style="margin-top:10px">Ispali: ${dead.map(p=>p.nick).join(', ')}</p>`:''}
+    </section>
+    ${S.mode==='online'?`<section class="section"><div class="chatbar">${icon('chat',18)}Chat stiže uskoro</div></section>`:''}
+  </div>
+  <div class="city">${gameSky()}</div><footer class="cta">${amHost?`<button class="btn btn-primary" data-a="startVote">${icon('vote',20)}Pokreni glasanje</button>`:`<div class="fine" style="text-align:center">Glasanje počinje kad domaćin odluči ili istekne vrijeme.</div><button class="btn proto" data-a="startVote">Glasanje</button>`}</footer>
+</div>`};
+const fmt = s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+/* 8. GLASANJE */
+SCREENS.vote = ()=>{
+  const V = S.vote, m = me();
+  const tie = V.phase==='TIE';
+  const voters = eligibleVoters();
+  const nVoted = Object.keys(V.votes).length;
+  const targets = alive().filter(p=>!tie || V.tie.includes(p.id));
+  const iCanVote = voters.some(p=>p.id===m.id);
+  const myVote = V.votes[m.id];
+  const counts = {}; Object.values(V.votes).forEach(t=>counts[t]=(counts[t]||0)+1);
+  const maxC = Math.max(1,...Object.values(counts));
+  let note='';
+  if(tie) note = `<div class="banner rise" style="--d:0">${icon('vote',22)}<div><h4>Izjednačeno</h4><p>${V.tie.map(id=>P(id).nick).join(' i ')} imaju isti broj glasova. Glasaj ponovno samo između njih.${V.tie.includes(m.id)?' Ti si u izjednačenju pa ovaj put ne glasaš.':''}</p></div></div>`;
+  else if(!isAlive(m.id)) note = `<div class="banner rise" style="--d:0">${icon('ghost',22)}<div><h4>Promatraš glasanje</h4><p>Ispali igrači ne glasaju.</p></div></div>`;
+  return `
+<div class="screen has-sky">
+  <div class="top"><div class="phase-title grow">${icon('vote',22)}${tie?'Ponovno glasanje':'Glasanje'}</div><span class="chip" style="margin-right:6px">Dan ${S.round}</span></div>
+  <div class="body">
+    ${note}
+    <div class="vprog rise" style="--d:1"><span id="vcount">Glasalo ${nVoted} od ${voters.length}</span><span class="dots">${voters.map(p=>`<i class="${V.votes[p.id]?'on':''}"></i>`).join('')}</span></div>
+    <div class="vgrid rise" style="--d:2">
+      ${targets.map(p=>{
+        const c=counts[p.id]||0, isMe=p.id===m.id, sel=(myVote||V.sel)===p.id;
+        const vs=Object.entries(V.votes).filter(([,t])=>t===p.id).map(([v])=>P(+v));
+        return `<button class="vcard ${sel?'is-sel':''} ${isMe?'is-me':''}" data-a="votePick" data-v="${p.id}" ${!iCanVote||myVote||isMe?'aria-disabled="true"':''}>
+          <span class="cnt ${c===maxC&&c>0?'hot':''}">${c}</span>
+          ${avatar(p,56,{host:p.host,muted:S.lastNight.silenced.includes(p.id),sel})}
+          <span class="nm">${isMe?'Ti':p.nick}</span>
+          <span class="voters">${vs.map(v=>avatar(v,22,{extra:v.id===V.last?'new':''})).join('')}</span>
+          <span class="bar"><i style="width:${c/voters.length*100}%"></i></span>
+        </button>`}).join('')}
+    </div>
+  </div>
+  <div class="city">${gameSky()}</div><footer class="cta">
+    ${iCanVote&&!myVote?`<div class="target-line">${V.sel?`Tvoj glas: <b>${P(V.sel).nick}</b>`:'Dodirni igrača kojeg želiš izbaciti'}</div><button class="btn btn-primary btn-hold" data-hold="voteConfirm" ${V.sel?'':'disabled'}>Drži za glasanje</button>`
+      :`<div class="target-line" style="justify-content:center">${myVote?`Tvoj glas je zabilježen. Čekamo ostale.`:'Čekamo glasove ostalih.'}</div>`}
+  </footer>
+</div>`};
+function eligibleVoters(){
+  const V=S.vote;
+  return alive().filter(p=>V.phase!=='TIE'||!V.tie.includes(p.id));
+}
+
+/* 9. KRAJ IGRE */
+SCREENS.end = ()=>{
+  const w = S.winnerOverride || winner() || 'MAFIA_WIN';
+  const mafiaWin = w==='MAFIA_WIN';
+  const title = mafiaWin?'Mafija pobjeđuje':'Građani pobjeđuju';
+  const groups = [['mafia','Tim mafije','var(--role-mafia)'],['town','Tim građana','var(--role-gradanin)']];
+  return `
+<div class="screen has-sky">
+  <div class="top"><span class="grow"></span><button class="icon-btn" data-a="go" data-v="home" aria-label="Zatvori">${icon('x',22)}</button></div>
+  <div class="body">
+    <div class="win">
+      <div class="k rise" style="--d:0">Kraj igre nakon ${S.round} ${S.round===1?'dana':'dana'}</div>
+      <h1 aria-label="${title}">${title.split(' ').map((w,wi)=>`<span class="w">${w.split('').map((c,i)=>`<span class="l" style="--i:${wi*8+i}">${c}</span>`).join('')}</span>`).join(' ')}</h1>
+      <p class="rise" style="--d:6">${mafiaWin?'Posljednja svjetla u gradu su se ugasila.':'Mafija je razotkrivena. Grad napokon diše.'}</p>
+    </div>
+    <div class="team-list rise" style="--d:7">
+      ${groups.map(([t,l,c])=>`<h3><span class="dotc" style="--c:${c}"></span>${l}${(t==='mafia')===mafiaWin?' <span class="chip" style="height:22px">pobjeda</span>':''}</h3>
+        ${PLAYERS.filter(p=>teamOf(p)===t).map(p=>`<div class="fate">${avatar(p,40,{dead:!isAlive(p.id)})}<div class="grow"><div class="nm">${p.nick}${p.id===S.meId?'<span class="me-tag">ti</span>':''}</div><div class="st">${isAlive(p.id)?gx(p,'Preživio','Preživjela'):deadText(p)}</div></div>${roleChip(p.role)}</div>`).join('')}`).join('')}
+    </div>
+  </div>
+  <div class="city">${gameSky()}</div><footer class="cta">
+    <button class="btn btn-primary" data-a="playAgain">Igraj ponovno</button>
+    <button class="btn btn-ghost" data-a="go" data-v="home">Na početnu</button>
+  </footer>
+</div>`};
+
+/* =====================================================================
+   OVERLAYI
+   ===================================================================== */
+const OVERLAYS = {};
+OVERLAYS.join = ()=>`
+<div class="scrim" data-a="close"></div>
+<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="joinT">
+  <div class="grab"></div>
+  <h2 id="joinT">Uđi s kodom</h2>
+  <p class="sub">Upiši šesteroznamenkasti kod koji ti je poslao domaćin.</p>
+  <div class="otp ${S.codeErr?'err':''}" id="otp">${'K7M2'.padEnd(6,' ').split('').map((c,i)=>`<input inputmode="text" autocomplete="off" maxlength="1" aria-label="Znak ${i+1}" data-otp="${i}" value="${c.trim()}">`).join('')}</div>
+  <div class="err-msg" id="errMsg" role="alert">${S.codeErr||''}</div>
+  <button class="btn btn-primary" data-a="joinCode">Uđi u sobu</button>
+  <p class="fine" style="text-align:center;margin-top:12px">Prototip: ispravan kod je K7M2QX</p>
+</div>`;
+
+OVERLAYS.rules = ()=>`
+<div class="scrim" data-a="close"></div>
+<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rulesT">
+  <div class="grab"></div>
+  <div style="display:flex;align-items:center"><h2 id="rulesT" class="grow">Pravila</h2><button class="icon-btn" data-a="close" aria-label="Zatvori">${icon('x',22)}</button></div>
+  <p class="sub">Tim mafije pobjeđuje kad ih je jednako ili više od ostalih. Građani pobjeđuju kad izbace cijeli tim mafije, uključujući Damu.</p>
+  <h3>Tijek runde</h3>
+  <ol class="flow">
+    <li>Noć: uloge se bude jedna po jedna i tajno biraju metu.</li>
+    <li>Jutro: narator otkriva tko je stradao i tko je utišan.</li>
+    <li>Dan: svi raspravljaju i traže mafiju.</li>
+    <li>Glasanje: igrač s najviše glasova ispada. Kod izjednačenja glasa se ponovno samo između izjednačenih.</li>
+  </ol>
+  <h3>Uloge po redu buđenja</h3>
+  ${ROLE_KEYS.map(k=>`<div class="rule-role">${roleIcon(k,40)}<div><h4>${R(k).name}<span class="team-tag">${R(k).team==='mafia'?'tim mafije':'tim građana'}</span></h4><p>${R(k).long}</p></div></div>`).join('')}
+</div>`;
+
+OVERLAYS.narr = ()=>{
+  const n=S.narr; const amHost=S.meId===1;
+  const audible = S.voice && (S.mode==='online'||amHost);
+  return `
+<div class="scrim"></div>
+<div class="sheet narr" role="dialog" aria-modal="true" aria-label="Narator">
+  <div class="grab"></div>
+  <div class="head"><div class="orb" id="orb"></div><div class="grow"><div class="who">Narator</div><div class="where">${n.label||''}</div></div><div class="wave" id="wave"><i></i><i></i><i></i><i></i><i></i></div></div>
+  <p class="narr-text" id="narrText" aria-live="polite"></p>
+  <div class="narr-actions">
+    <button class="icon-btn" data-a="narrReplay" aria-label="Ponovi naraciju">${icon('replay',20)}</button>
+    <button class="icon-btn" data-a="narrVoice" id="narrVoice" aria-label="${S.voice?'Isključi glas':'Uključi glas'}">${icon(S.voice?'volume':'mute',20)}</button>
+    <button class="btn btn-primary" data-a="narrNext" style="flex:1">${n.cta||'Nastavi'}</button>
+  </div>
+  <p class="fine">${S.mode==='live'&&!amHost?'Glas se čuje s domaćinova mobitela.':audible?'':'Glas je isključen. Narator piše tekst.'}</p>
+</div>`};
+
+OVERLAYS.elim = ()=>{
+  const p=P(S.elim);
+  return `
+<div class="scrim"></div>
+<div class="center"><div class="elim" role="alertdialog" aria-label="${p.nick} je ${gx(p,'izbačen','izbačena')}">
+  <div class="elim-av">${avatar(p,132)}<svg viewBox="0 0 132 132"><path d="M66 6 60 40l12 14-8 22 10 18-6 32"/><path d="M60 40 34 52"/><path d="M64 76 98 86"/></svg></div>
+  <h2>${p.nick} je ${gx(p,'izbačen','izbačena')}</h2>
+  <p>Uloga ostaje tajna do kraja igre.</p>
+  <button class="btn btn-primary" data-a="elimNext">Dalje</button>
+</div></div>`};
+
+OVERLAYS.reconnect = ()=>`<div class="toast" id="toast" role="status"><span class="spin"></span><div><h4>Veza je prekinuta</h4><p>Spajam te ponovno u igru…</p></div></div>`;
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+const THEME = {home:'night',rooms:'night',create:'night',lobby:'night',role:'night',night:'night',day:'day',vote:'day'};
+function render(){
+  const host=$('#screen');
+  const sameScreen = S.entered===S.screen;
+  const prevBody = $('.body',host); const scroll = sameScreen&&prevBody?prevBody.scrollTop:0;
+  const t = S.screen==='end' ? ((S.winnerOverride||winner()||'MAFIA_WIN')==='MAFIA_WIN'?'night':'day') : THEME[S.screen];
+  if(PH.dataset.theme!==t){PH.dataset.theme=t; fxTheme()}
+  host.innerHTML = SCREENS[S.screen]();
+  const scr=$('.screen',host);
+  if(!sameScreen){scr.classList.add('enter'); S.entered=S.screen; AFTER[S.screen]&&AFTER[S.screen]()}
+  else { const b=$('.body',host); if(b) b.scrollTop=scroll }
+  renderLayer();
+  const meta=[...SCREEN_META].find(x=>x[0]===S.screen);
+  $('#devCur').textContent = meta?meta[1]:S.screen;
+  if($('#drawer').classList.contains('open')) renderDrawer();
+}
+function renderLayer(){
+  const L=$('#layer');
+  if(!S.overlay){L.innerHTML='';return}
+  if(L.dataset.ov===S.overlay && L.innerHTML) return;
+  L.dataset.ov=S.overlay;
+  L.innerHTML = OVERLAYS[S.overlay]();
+  if(S.overlay==='narr') typeOut();
+}
+function setOverlay(v){S.overlay=v; $('#layer').dataset.ov=''; renderLayer()}
+
+/* nakon ulaska na ekran */
+const AFTER = {
+  lobby(){ simulateJoins() },
+  day(){ clearInterval(S._tick); S._tick=setInterval(()=>{ if(S.overlay) return; S.timer=Math.max(0,S.timer-1); const t=$('#timerTxt'),r=$('#ringPr'); if(t){t.textContent=fmt(S.timer); r.style.strokeDashoffset=175.9*(1-S.timer/150)} if(!S.timer) clearInterval(S._tick)},1000) },
+  end(){ later(()=>burst(),350) }
+};
+
+/* =====================================================================
+   NAVIGACIJA I SCENARIJI
+   ===================================================================== */
+function go(screen,opts={}){
+  clearTimers(); speechCancel();
+  if(!opts.noHistory && S.screen!==screen) S.history.push(S.screen);
+  S.screen=screen; S.overlay=opts.overlay||null; S.entered=null;
+  render();
+}
+function scenario(screen){ // postavlja logično stanje igre kad se skače preko izbornika
+  S.night={step:'pick',sel:[],result:null}; S.waiting=false; S.winnerOverride=null; S.revealOpen=false; S.ready=false; S.readyN=0; S.timer=150;
+  if(screen==='lobby'){S.joined=Math.min(5,S.maxPlayers)}
+  if(screen==='night'){S.round=2; S.dead={6:{how:'kill',round:1},5:{how:'vote',round:1}}; S.lastNight={killed:[],silenced:[]}}
+  if(screen==='day'||screen==='vote'){S.round=2; S.dead={6:{how:'kill',round:1},5:{how:'vote',round:1},3:{how:'kill',round:2}}; S.lastNight={killed:[3],silenced:[4]}}
+  if(screen==='vote'){S.vote={phase:'DAY',votes:{},sel:null,tie:null}}
+  if(screen==='end'){S.round=2; S.dead={6:{how:'kill',round:1},5:{how:'vote',round:1},3:{how:'kill',round:2},4:{how:'vote',round:2}}; S.lastNight={killed:[3],silenced:[4]}}
+  if(screen==='role'){S.round=1; S.dead={}}
+}
+function winner(){
+  const al=alive(); const m=al.filter(p=>teamOf(p)==='mafia').length; const o=al.length-m;
+  if(m===0) return 'CITIZENS_WIN'; if(m>=o) return 'MAFIA_WIN'; return null;
+}
+
+/* ---------- prijelaz noć / dan ---------- */
+function phaseTo(kind,title,sub,then){
+  speechCancel();
+  if(RM){then();return}
+  const el=document.createElement('div'); el.className='ptx '+kind;
+  el.innerHTML=`<div class="sky"></div><div class="orbit"></div><div class="txt"><h2>${title.split('').map((c,i)=>`<span style="--i:${i}">${c===' '?'&nbsp;':c}</span>`).join('')}</h2><p>${sub}</p></div>`;
+  PH.appendChild(el);
+  setTimeout(then,1100);
+  setTimeout(()=>el.classList.add('out'),2100);
+  setTimeout(()=>el.remove(),2700);
+}
+
+/* ---------- naracija ---------- */
+function narrate(text,next,o={}){ S.narr={text,next,label:o.label||'',cta:o.cta}; setOverlay('narr') }
+function typeOut(){
+  const el=$('#narrText'),wave=$('#wave'),orb=$('#orb'); if(!el) return;
+  clearInterval(S._type); const txt=S.narr.text; let i=0;
+  wave.classList.add('on'); orb.classList.add('talk');
+  const done=()=>{el.textContent=txt; wave.classList.remove('on'); orb.classList.remove('talk')};
+  speak(txt);
+  if(RM){done();return}
+  S._type=setInterval(()=>{i+=1; el.innerHTML=esc(txt.slice(0,i))+'<span class="caret"></span>'; if(i>=txt.length){clearInterval(S._type); setTimeout(done,500)}},28);
+}
+function speak(txt){
+  if(!S.voice||!('speechSynthesis' in window)) return;
+  if(S.mode==='live'&&S.meId!==1) return;
+  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='hr-HR'; u.rate=1.02;
+    const v=speechSynthesis.getVoices().find(v=>/^hr/i.test(v.lang)); if(v) u.voice=v; speechSynthesis.speak(u);}catch(e){}
+}
+function speechCancel(){ try{speechSynthesis.cancel()}catch(e){} }
+
+/* ---------- lobby: igrači ulaze jedan po jedan ---------- */
+function simulateJoins(){
+  const people=LOBBY_PEOPLE.slice(0,S.maxPlayers);
+  const step=()=>{
+    if(S.screen!=='lobby'||S.joined>=S.maxPlayers) return;
+    const p=people[S.joined]; S.joined++;
+    const slot=document.querySelector(`[data-slot="${p.id}"]`); if(slot) slot.outerHTML=slotHTML(p,true);
+    const w=document.querySelector(`[data-pw="${p.id}"]`); if(w){w.classList.remove('empty');w.classList.add('on','just-on')}
+    $('#joinedN').textContent=`${S.joined} od ${S.maxPlayers}`;
+    $('#lobbyCta').innerHTML=lobbyCta(S.joined>=S.maxPlayers,S.meId===1);
+    if(S.joined<S.maxPlayers && S.joined<7) later(step,1500);
+  };
+  later(step,1600);
+}
+
+/* ---------- noć ---------- */
+function nightAct(){
+  const m=me(), cfg=nightCfg(m), ids=S.night.sel;
+  const act = m.role==='Dama' && !alive().some(p=>p.role==='Mafia') ? 'KILL' : R(m.role).action;
+  S.myNight={act,ids:[...ids]};
+  if(act==='INVESTIGATE'){
+    const t=P(ids[0]); const mafiaAlive=alive().some(p=>p.role==='Mafia');
+    const v = t.role==='Mafia'||(t.role==='Dama'&&!mafiaAlive)?'MAFIA':'NOT_MAFIA';
+    S.night.step='result'; S.night.result={type:act,ids,value:v};
+  } else if(act==='COMPARE'){
+    const [a,b]=ids.map(P); S.night.step='result'; S.night.result={type:act,ids,value:teamOf(a)===teamOf(b)?'ISTI_TIM':'RAZLICIT_TIM'};
+  } else S.night.step='sent';
+  render();
+}
+function resolveNight(){
+  const my=S.myNight||{};
+  let kill = my.act==='KILL' ? my.ids[0] : mafiaTarget();
+  const saved = my.act==='SAVE' ? my.ids[0] : null;
+  let sil = my.act==='SILENCE' ? my.ids[0] : (alive().some(p=>p.role==='Dama') && alive().some(p=>p.role==='Mafia') ? SIL_PREF.find(id=>isAlive(id)&&id!==kill) : null);
+  const killed=[];
+  if(kill && kill!==saved){ S.dead[kill]={how:'kill',round:S.round}; killed.push(kill) }
+  S.lastNight={killed,silenced:sil?[sil]:[]}; S.myNight=null;
+  const w=winner();
+  const k=killed.map(P)[0], s=sil?P(sil):null;
+  let txt = k ? `Sunce izlazi nad gradom, ali ne donosi mir. ${k.nick} se jutros nije ${gx(k,'probudio','probudila')}.` : 'Sunce izlazi i svi su se probudili. Netko je noćas imao anđela čuvara.';
+  if(s) txt += ` A ${s.nick} danas šuti. Netko ${gx(s,'mu','joj')} je noćas zatvorio usta.`;
+  if(w){ go('end',{noHistory:true}); return }
+  phaseTo('day',`Dan ${S.round}`,'Sunce izlazi',()=>{ S.timer=150; go('day',{noHistory:true}); narrate(txt,null,{label:'Jutarnje vijesti'}) });
+}
+
+/* ---------- glasanje ---------- */
+function prefFor(voterId,allowed){
+  const pref=(VOTE_PREF[voterId]||[]).find(id=>allowed.includes(id)&&id!==voterId);
+  return pref ?? allowed.find(id=>id!==voterId);
+}
+function simulateVotes(){
+  const V=S.vote, allowed=(V.phase==='TIE'?V.tie:alive().map(p=>p.id));
+  const queue=eligibleVoters().filter(p=>!V.votes[p.id]&&p.id!==S.meId);
+  let d=500;
+  queue.forEach(p=>{ later(()=>{ V.votes[p.id]=prefFor(p.id,allowed); V.last=p.id; render() },d); d+=650 });
+  later(resolveVote,d+500);
+}
+function resolveVote(){
+  const V=S.vote; const c={}; Object.values(V.votes).forEach(t=>c[t]=(c[t]||0)+1);
+  const max=Math.max(...Object.values(c)); const top=Object.keys(c).filter(k=>c[k]===max).map(Number);
+  if(top.length>1){
+    const names=top.map(id=>P(id).nick).join(' i ');
+    if(V.phase==='DAY'){
+      narrate(`Glasovi su podijeljeni. ${names}, grad vas ne može razdvojiti. Glasajte ponovno, ali samo između njih.`,()=>{ S.vote={phase:'TIE',tie:top,votes:{},sel:null}; S.entered=null; render(); if(!eligibleVoters().some(p=>p.id===S.meId)) simulateVotes() },{label:'Izjednačeno'});
+    } else {
+      narrate('Opet izjednačeno. Danas nitko ne odlazi. Noć se spušta na grad.',()=>nextNight(),{label:'Nitko ne ispada'});
+    }
+    return;
+  }
+  const out=top[0]; S.elim=out;
+  setOverlay('elim');
+  later(()=>{ const w=document.querySelector(`[data-pw="${out}"]`); if(w){w.classList.add('dying')} },600);
+  S.dead[out]={how:'vote',round:S.round};
+}
+function nextNight(){
+  S.round++; S.night={step:'pick',sel:[],result:null}; S.lastNight={killed:[],silenced:[]};
+  phaseTo('night',`Noć ${S.round}`,'Grad tone u san',()=>{ go('night',{noHistory:true}); narrate(nightIntro(),null,{label:'Noć se spušta'}) });
+}
+const nightIntro = ()=>'Grad tone u san. Ulice su prazne, a negdje u mraku netko upravo donosi odluku. Mafijo, otvorite oči.';
+
+/* =====================================================================
+   AKCIJE (event delegation)
+   ===================================================================== */
+const A = {
+  noop(){},
+  go(v){ if(['night','day','vote','end','lobby','role'].includes(v)) scenario(v); go(v) },
+  back(){ const p=S.history.pop()||'home'; go(p,{noHistory:true}) },
+  overlay(v){ if(v==='join') S.codeErr=null; setOverlay(v); if(v==='join') later(()=>{const i=document.querySelector('[data-otp="4"]'); i&&i.focus()},350) },
+  close(){ setOverlay(null) },
+  emojiOpen(){ S.emojiOpen=!S.emojiOpen; render() },
+  pickEmoji(v){ S.emoji=v; LOBBY_PEOPLE[0].emoji=v; S.emojiOpen=false; render() },
+  roomFilter(v){ S.roomFilter=v; S.entered=null; render() },
+  refreshRooms(){ const b=$('#refBtn svg'); if(b){b.style.transition='transform .6s var(--ease-out)'; b.style.transform='rotate(360deg)'} },
+  joinRoom(){ scenario('lobby'); S.meId=4; go('lobby') },
+  step(v){
+    const [k,d]=v.split(':'); const n=+d;
+    if(k==='max') S.maxPlayers=Math.min(20,Math.max(4,S.maxPlayers+n));
+    else S.counts[k]=Math.max(k==='Mafia'?1:0,S.counts[k]+n);
+    render();
+    const o=k==='max'?$('#maxN'):document.querySelector(`[data-out="${k}"]`); if(o){o.classList.remove('bump'); void o.offsetWidth; o.classList.add('bump')}
+  },
+  fillTown(){ const sum=ROLE_KEYS.reduce((a,k)=>a+S.counts[k],0); S.counts['Građanin']+=S.maxPlayers-sum; render() },
+  set(v){ const [k,val]=v.split(':'); S[k]=val; render() },
+  toggleVoice(){ S.voice=!S.voice; render() },
+  createRoom(){ S.meId=1; S.joined=1; go('lobby') },
+  copyCode(){ try{navigator.clipboard.writeText('K7M2QX')}catch(e){} const b=$('#copyBtn'); b.innerHTML=`${icon('check',17,2.2)}<span>Kopirano</span>`; later(()=>{ if($('#copyBtn')) $('#copyBtn').innerHTML=`${icon('copy',17)}<span>Kopiraj kod</span>` },1600) },
+  fillLobby(){ clearTimers(); S.joined=S.maxPlayers-1; render(); later(()=>simulateJoinsOnce(LOBBY_PEOPLE[S.maxPlayers-1]),300) },
+  startGame(){ scenario('role'); go('role') },
+  ready(){
+    S.ready=true; S.readyN=1; $('#roleCta').innerHTML=roleCta();
+    const tick=()=>{ S.readyN++; const c=$('#roleCta'); if(c) c.innerHTML=roleCta(); if(S.readyN<8) later(tick,330); else later(()=>{
+      narrate('Dobro došli u grad. Svatko od vas krije tajnu. Noć pada i svi zatvaraju oči.',()=>{
+        phaseTo('night','Noć 1','Grad tone u san',()=>{ S.round=1; S.night={step:'pick',sel:[],result:null}; go('night',{noHistory:true}); narrate(nightIntro(),null,{label:'Noć se spušta'}) });
+      },{label:'Početak igre',cta:'Počni noć'});
+    },700) };
+    later(tick,400);
+  },
+  peekRole(){ const m=me(),r=R(m.role); showToast(`<span class="ricon" style="--s:36px;--rc:${r.color}">${icon(r.icon,18)}</span><div><h4>${r.name}</h4><p>${r.team==='mafia'?'Tim mafije':'Tim građana'}</p></div>`,1800) },
+  nightPick(v){
+    const id=+v, cfg=nightCfg(me()); if(cfg.off(P(id))) return;
+    const sel=S.night.sel;
+    if(sel.includes(id)) S.night.sel=sel.filter(x=>x!==id);
+    else if(cfg.need===1) S.night.sel=[id];
+    else S.night.sel=[...sel.slice(-(cfg.need-1)),id];
+    render();
+  },
+  nightConfirm(){ nightAct() },
+  sendDone(){ S.night.step='sent'; render() },
+  stopWaiting(){ S.waiting=false; render() },
+  resolveNight(){ resolveNight() },
+  timerAdd(){ S.timer=Math.min(150,S.timer+30); const t=$('#timerTxt'); if(t){t.textContent=fmt(S.timer); $('#ringPr').style.strokeDashoffset=175.9*(1-S.timer/150)} },
+  startVote(){ clearInterval(S._tick); S.vote={phase:'DAY',votes:{},sel:null,tie:null}; go('vote',{noHistory:true}); if(!eligibleVoters().some(p=>p.id===S.meId)) simulateVotes() },
+  votePick(v){ const id=+v, V=S.vote; if(V.votes[S.meId]||id===S.meId||!eligibleVoters().some(p=>p.id===S.meId)) return; V.sel=V.sel===id?null:id; render() },
+  voteConfirm(){ const V=S.vote; V.votes[S.meId]=V.sel; V.last=S.meId; render(); simulateVotes() },
+  elimNext(){ const w=winner(); setOverlay(null); if(w){ S.winnerOverride=null; go('end',{noHistory:true}) } else { const p=P(S.elim); narrate(`${p.nick} odlazi iz grada. Je li grad odlučio dobro, saznat ćete uskoro.`,()=>nextNight(),{label:'Odluka grada',cta:'Počni noć'}) } },
+  narrNext(){ clearInterval(S._type); speechCancel(); const n=S.narr&&S.narr.next; S.narr=null; setOverlay(null); if(n) n() },
+  narrReplay(){ typeOut() },
+  narrVoice(){ S.voice=!S.voice; if(!S.voice) speechCancel(); const b=$('#narrVoice'); if(b){b.innerHTML=icon(S.voice?'volume':'mute',20); b.setAttribute('aria-label',S.voice?'Isključi glas':'Uključi glas')} },
+  joinCode(){
+    const code=[...document.querySelectorAll('[data-otp]')].map(i=>i.value.toUpperCase()).join('');
+    if(code.length<6){ S.codeErr='Upiši svih šest znakova.' }
+    else if(code!=='K7M2QX'){ S.codeErr=`Soba ${code} ne postoji. Provjeri kod s domaćinom.` }
+    else { S.codeErr=null; scenario('lobby'); S.meId=4; go('lobby'); return }
+    const o=$('#otp'); o.classList.add('err'); o.classList.remove('shake'); void o.offsetWidth; o.classList.add('shake'); $('#errMsg').textContent=S.codeErr;
+  },
+  playAgain(){ scenario('lobby'); S.meId=1; S.joined=S.maxPlayers; go('lobby') },
+  /* prototip */
+  devOpen(){ $('#drawer').classList.add('open'); renderDrawer() },
+  devClose(){ $('#drawer').classList.remove('open') },
+  devPrev(){ const i=SCREEN_META.findIndex(x=>x[0]===S.screen); const n=SCREEN_META[(i-1+SCREEN_META.length)%SCREEN_META.length][0]; scenario(n); go(n) },
+  devNext(){ const i=SCREEN_META.findIndex(x=>x[0]===S.screen); const n=SCREEN_META[(i+1)%SCREEN_META.length][0]; scenario(n); go(n) },
+  devScreen(v){ A.devClose(); scenario(v); go(v) },
+  devOverlay(v){
+    A.devClose();
+    if(v==='narr'){ narrate('Sunce izlazi nad gradom, ali ne donosi mir. Marko se jutros nije probudio. A Lea danas šuti. Netko joj je noćas zatvorio usta.',null,{label:'Jutarnje vijesti'}) }
+    else if(v==='reconnect'){ setOverlay('reconnect'); later(()=>{ const t=$('#toast'); if(t) t.innerHTML=`<span class="ok">${icon('check',22,2.2)}</span><div><h4>Ponovno si u igri</h4><p>Ništa nisi propustio.</p></div>` },2200); later(()=>{ const t=$('#toast'); if(t) t.classList.add('out'); later(()=>setOverlay(null),400) },3600) }
+    else if(v==='elim'){ if(!['vote','day'].includes(S.screen)){scenario('vote'); go('vote')} S.elim=4; setOverlay('elim'); later(()=>{const w=document.querySelector('[data-pw="4"]'); w&&w.classList.add('dying')},600); S.dead[4]={how:'vote',round:S.round} }
+    else if(v==='phase'){ scenario('day'); phaseTo('day','Dan 2','Sunce izlazi',()=>go('day',{noHistory:true})) }
+    else A.overlay(v);
+  },
+  devPersp(v){ const map={Mafia:1,Dama:2,Doktor:4,Policajac:8,Novinar:3,'Građanin':7,Promatrač:6}; S.meId=map[v]; S.night={step:'pick',sel:[],result:null}; S.revealOpen=false; if(S.vote){S.vote.sel=null} S.entered=S.screen; render(); renderDrawer() },
+  devMode(v){ S.mode=v; render(); renderDrawer() },
+  devWin(v){ S.winnerOverride=v; scenario('end'); S.winnerOverride=v; if(v==='CITIZENS_WIN'){ S.dead={6:{how:'kill',round:1},5:{how:'vote',round:1},3:{how:'kill',round:2},1:{how:'vote',round:2},2:{how:'vote',round:3}}; S.round=3 } A.devClose(); go('end') },
+  devWait(){ S.waiting=!S.waiting; if(S.screen!=='night'){scenario('night'); S.waiting=true; go('night')} else render(); renderDrawer() }
+};
+function simulateJoinsOnce(p){
+  S.joined=S.maxPlayers;
+  const slot=document.querySelector(`[data-slot="${p.id}"]`); if(slot) slot.outerHTML=slotHTML(p,true);
+  const w=document.querySelector(`[data-pw="${p.id}"]`); if(w){w.classList.remove('empty');w.classList.add('on','just-on')}
+  $('#joinedN').textContent=`${S.joined} od ${S.maxPlayers}`; $('#lobbyCta').innerHTML=lobbyCta(true,S.meId===1);
+}
+function showToast(html,ms){
+  const L=$('#layer'); const t=document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); t.innerHTML=html; L.appendChild(t);
+  setTimeout(()=>t.classList.add('out'),ms); setTimeout(()=>t.remove(),ms+450);
+}
+
+/* drawer prototipa */
+function renderDrawer(){
+  const persp = Object.entries({Mafia:1,Dama:2,Doktor:4,Policajac:8,Novinar:3,'Građanin':7,Promatrač:6}).find(([,id])=>id===S.meId);
+  $('#drawer').innerHTML=`<div class="dscrim" data-a="devClose"></div><div class="dpanel" role="dialog" aria-label="Prototip">
+    <h3>Ekrani</h3><div class="dl">${SCREEN_META.map(([k,l],i)=>`<button class="${S.screen===k?'cur':''}" data-a="devScreen" data-v="${k}"><small>${i+1}</small>${l}</button>`).join('')}</div>
+    <h3>Overlayi i animacije</h3><div class="dl">${OVERLAY_META.map(([k,l])=>`<button data-a="devOverlay" data-v="${k}">${l}</button>`).join('')}</div>
+    <h3>Gledaj kao uloga</h3><div class="dseg">${['Mafia','Dama','Doktor','Policajac','Novinar','Građanin','Promatrač'].map(k=>`<button aria-pressed="${persp&&persp[0]===k}" data-a="devPersp" data-v="${k}">${k==='Promatrač'?'Promatrač':R(k).name}</button>`).join('')}</div>
+    <h3>Način igre</h3><div class="dseg"><button aria-pressed="${S.mode==='live'}" data-a="devMode" data-v="live">Uživo</button><button aria-pressed="${S.mode==='online'}" data-a="devMode" data-v="online">Online</button></div>
+    <h3>Noć</h3><div class="dseg"><button aria-pressed="${S.waiting}" data-a="devWait">Čekam svoj red</button></div>
+    <h3>Kraj igre</h3><div class="dseg"><button data-a="devWin" data-v="MAFIA_WIN">Mafija pobjeđuje</button><button data-a="devWin" data-v="CITIZENS_WIN">Građani pobjeđuju</button></div>
+    <p>Uloga mijenja i tko si ti: Mafija = Niko (domaćin), Dama = Ana, Doktor = Lea, Policajac = Mia, Novinar = Marko, Građanin = Luka, Promatrač = Petra. Tok se može odigrati od početka: Kreiraj sobu → Pokreni igru → drži Spreman sam.</p>
+  </div>`;
+}
+
+/* ---------- klikovi ---------- */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]'); if(!el||el.disabled||el.getAttribute('aria-disabled')==='true') return;
+  if(el.classList.contains('btn')) ripple(el,e);
+  const fn=A[el.dataset.a]; if(fn) fn(el.dataset.v,el);
+});
+function ripple(el,e){
+  if(RM) return; const r=el.getBoundingClientRect(); const s=document.createElement('span'); const d=Math.max(r.width,r.height);
+  s.className='ripple'; s.style.cssText=`width:${d}px;height:${d}px;left:${(e.clientX||r.left+r.width/2)-r.left-d/2}px;top:${(e.clientY||r.top+r.height/2)-r.top-d/2}px`;
+  el.appendChild(s); setTimeout(()=>s.remove(),600);
+}
+/* ---------- drži za potvrdu ---------- */
+let hold=null;
+document.addEventListener('pointerdown',e=>{
+  const flip=e.target.closest('#flip');
+  if(flip){ if(flip.dataset.flip==='hold'){ flip.classList.add('is-open'); S.revealOpen=true } else { flip.classList.toggle('is-open'); S.revealOpen=flip.classList.contains('is-open') } return }
+  const b=e.target.closest('[data-hold]'); if(!b||b.disabled) return;
+  const dur=RM?150:850, t0=performance.now();
+  hold={b,raf:0};
+  const tick=now=>{ const p=Math.min(1,(now-t0)/dur); b.style.setProperty('--p',p); if(p<1){hold.raf=requestAnimationFrame(tick)} else { b.classList.add('done'); if(navigator.vibrate) navigator.vibrate(30); const fn=A[b.dataset.hold]; hold=null; setTimeout(()=>fn&&fn(),120) } };
+  hold.raf=requestAnimationFrame(tick);
+});
+const endHold=()=>{
+  const flip=$('#flip'); if(flip&&flip.dataset.flip==='hold'&&flip.classList.contains('is-open')){ flip.classList.remove('is-open'); S.revealOpen=false }
+  if(hold){ cancelAnimationFrame(hold.raf); const b=hold.b; b.style.transition='--p .2s'; b.style.setProperty('--p',0); hold=null }
+};
+['pointerup','pointercancel','pointerleave'].forEach(t=>document.addEventListener(t,e=>{ if(t==='pointerleave'&&e.target!==document.documentElement) return; endHold() }));
+document.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-hold]')){ e.preventDefault(); const fn=A[e.target.dataset.hold]; fn&&fn() }
+  if((e.key==='Enter'||e.key===' ')&&e.target.id==='flip'){ e.preventDefault(); e.target.classList.toggle('is-open') }
+  if(e.key==='Escape'){ if($('#drawer').classList.contains('open')) A.devClose(); else if(['join','rules'].includes(S.overlay)) A.close() }
+});
+/* ---------- unos ---------- */
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.input==='nick'){ S.nick=t.value; LOBBY_PEOPLE[0].nick=t.value||'Niko' }
+  if(t.dataset.otp!==undefined){ t.value=t.value.replace(/[^a-z0-9]/gi,'').toUpperCase().slice(-1); if(t.value){ const n=document.querySelector(`[data-otp="${+t.dataset.otp+1}"]`); n&&n.focus() } $('#otp').classList.remove('err'); $('#errMsg').textContent='' }
+});
+document.addEventListener('keydown',e=>{ const t=e.target; if(t.dataset&&t.dataset.otp!==undefined&&e.key==='Backspace'&&!t.value){ const p=document.querySelector(`[data-otp="${+t.dataset.otp-1}"]`); p&&p.focus() } if(t.dataset&&t.dataset.otp!==undefined&&e.key==='Enter') A.joinCode() });
+document.addEventListener('paste',e=>{ const t=e.target; if(t.dataset&&t.dataset.otp!==undefined){ e.preventDefault(); const s=(e.clipboardData.getData('text')||'').replace(/[^a-z0-9]/gi,'').toUpperCase().slice(0,6); document.querySelectorAll('[data-otp]').forEach((i,k)=>i.value=s[k]||'') } });
+
+/* =====================================================================
+   ČESTICE (prašina / žar u zraku) + konfeti na kraju
+   ===================================================================== */
+const fx={c:$('#fx'),ctx:null,parts:[],bursts:[],rgb:'255,140,150',w:0,h:0,dpr:1};
+function fxResize(){ fx.dpr=Math.min(2,devicePixelRatio||1); fx.w=PH.clientWidth; fx.h=PH.clientHeight; fx.c.width=fx.w*fx.dpr; fx.c.height=fx.h*fx.dpr; fx.ctx=fx.c.getContext('2d'); fx.ctx.setTransform(fx.dpr,0,0,fx.dpr,0,0) }
+function fxTheme(){ fx.rgb = PH.dataset.theme==='day' ? '255,205,140' : '255,150,160' }
+function fxInit(){ fxResize(); fxTheme(); fx.parts=Array.from({length:38},()=>({x:Math.random()*fx.w,y:Math.random()*fx.h,r:.5+Math.random()*1.5,vy:-(.05+Math.random()*.16),vx:(Math.random()-.5)*.08,a:Math.random(),ph:Math.random()*6.28})); if(!RM) requestAnimationFrame(fxLoop) }
+function fxLoop(t){
+  const {ctx,w,h}=fx; ctx.clearRect(0,0,w,h);
+  for(const p of fx.parts){ p.x+=p.vx; p.y+=p.vy; if(p.y<-4){p.y=h+4;p.x=Math.random()*w} const a=.25+.25*Math.sin(t/900+p.ph); ctx.fillStyle=`rgba(${fx.rgb},${a})`; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.283); ctx.fill() }
+  fx.bursts=fx.bursts.filter(b=>b.life>0);
+  for(const b of fx.bursts){ b.vy+=.16; b.vx*=.99; b.x+=b.vx; b.y+=b.vy; b.rot+=b.vr; b.life--; ctx.save(); ctx.globalAlpha=Math.min(1,b.life/40); ctx.translate(b.x,b.y); ctx.rotate(b.rot); ctx.fillStyle=b.c; ctx.fillRect(-b.s/2,-b.s/4,b.s,b.s/2); ctx.restore() }
+  requestAnimationFrame(fxLoop);
+}
+function burst(){
+  if(RM) return; const cs=getComputedStyle(PH); const cols=[cs.getPropertyValue('--accent').trim(),cs.getPropertyValue('--window').trim(),'#ffffff'];
+  for(let i=0;i<110;i++){ const a=-Math.PI/2+(Math.random()-.5)*1.9, v=5+Math.random()*7; fx.bursts.push({x:fx.w/2,y:fx.h*.26,vx:Math.cos(a)*v,vy:Math.sin(a)*v,s:5+Math.random()*6,rot:Math.random()*6,vr:(Math.random()-.5)*.3,c:cols[i%3],life:90+Math.random()*60}) }
+}
+addEventListener('resize',fxResize);
+
+/* start */
+fxInit(); render();
+</script>
+</body>
+</html>
