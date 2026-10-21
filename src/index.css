@@ -49,6 +49,7 @@
   --animate-win-on: win-on 1.1s steps(1, end);
   --animate-win-off: win-off 1.4s forwards;
   --animate-breathe: breathe 1.6s ease-in-out infinite;
+  --animate-shine: shine 1.1s .35s cubic-bezier(.2, .8, .2, 1);
 
   @keyframes ripple {
     from { transform: scale(0); }
@@ -77,6 +78,10 @@
     45% { opacity: .1; }
     60% { opacity: .8; }
     100% { fill: var(--line); opacity: 1; }
+  }
+  /* odsjaj preko lica karte uloge */
+  @keyframes shine {
+    to { transform: translateX(120%); }
   }
   /* točka praznog mjesta u lobbyju */
   @keyframes breathe {

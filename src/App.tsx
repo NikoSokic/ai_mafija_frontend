@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router'
 import CreateRoomPage from './pages/CreateRoomPage.tsx'
-import GamePage from './pages/GamePage.tsx'
+import GameScreen from './pages/GameScreen.tsx'
 import HomePage from './pages/HomePage.tsx'
 import LobbyPage from './pages/LobbyPage.tsx'
 import PublicRoomsPage from './pages/PublicRoomsPage.tsx'
@@ -19,7 +19,7 @@ export default function App() {
         <Route path="/sobe" element={<PublicRoomsPage />} />
         <Route path="/nova" element={<CreateRoomPage />} />
         <Route path="/soba/:code" element={<LobbyPage />} />
-        <Route path="/igra/:code" element={<GamePage />} />
+        <Route path="/igra/:code" element={<GameScreen />} />
         {DevPage && (
           <Route
             path="/dev"

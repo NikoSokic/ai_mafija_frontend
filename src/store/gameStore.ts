@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type {
+  GameStateResponse,
   LobbyDetailsResponse,
   LobbyPlayerResponse,
   LobbyStatus,
@@ -21,12 +22,15 @@ interface GameStore {
   lobbyError: string | null
   /** zadnje javno stanje igre iz GAME_STATE_CHANGED / GAME_FINISHED */
   publicState: PublicGameStateResponse | null
+  /** stanje iz perspektive ovog igrača (GET /game-state): uloga, je li živ… */
+  gameState: GameStateResponse | null
   connection: ConnectionStatus
 
   /** prazni stanje kad se otvori druga soba; za istu sobu ga ostavlja */
   reset: (code: string) => void
   setLobby: (details: LobbyDetailsResponse) => void
   setLobbyError: (message: string) => void
+  setGameState: (state: GameStateResponse) => void
   setConnection: (status: ConnectionStatus) => void
   // događaji s /topic/lobby/{code}
   playerJoined: (player: LobbyPlayerResponse) => void
@@ -62,11 +66,12 @@ export const useGameStore = create<GameStore>((set, get) => {
     lobby: null,
     lobbyError: null,
     publicState: null,
+    gameState: null,
     connection: 'connecting',
 
     reset: (code) => {
       if (get().lobby?.code === code) return
-      set({ lobby: null, lobbyError: null, publicState: null })
+      set({ lobby: null, lobbyError: null, publicState: null, gameState: null })
     },
     setLobby: (details) => {
       const previous = get().lobby
@@ -84,6 +89,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       })
     },
     setLobbyError: (message) => set({ lobbyError: message }),
+    setGameState: (state) => set({ gameState: state }),
     setConnection: (status) => set({ connection: status }),
 
     playerJoined: (player) => updateLobby((lobby) => ({ players: mergePlayers(lobby.players, [player]) })),

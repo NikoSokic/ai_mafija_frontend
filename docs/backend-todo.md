@@ -46,3 +46,16 @@ Treba: npr. `POST /api/lobbies/{code}/leave {playerId, playerToken}` i WebSocket
 
 ## Duljina nadimka
 `CreateLobbyRequest.hostNickname` ima `@Size(max = 30)`, a `JoinLobbyRequest.nickname` nema ograničenje. Frontend ograničava nadimak na 16 znakova. Treba isto pravilo na oba mjesta.
+
+## Suigrači mafije na karti uloge (6.5, 10.6)
+`PlayerRoleResponse` (`POST /api/players/role`) i `currentPlayer` u `game-state` vraćaju samo ime uloge. Karta uloge za tim mafije zato ne prikazuje suigrače, a oni su bitni jer se Mafija i Dama moraju prepoznati.
+
+Treba: `teammates: [{playerId, nickname, roleName}]` u odgovoru za igrače tima mafije (prazno za građane).
+
+## "Spreman sam" nakon otkrivanja uloge (6.5, 10.13)
+Backend ne zna je li igrač vidio ulogu: igra odmah ide u fazu `NIGHT`. Gumb "Spreman sam" zato samo lokalno pamti da je igrač vidio ulogu (`aimafija.seenRole.{code}`) i otvara noćni ekran. Nema brojača "Spremno 5 od 8", a noć može početi dok neki igrač još gleda svoju kartu.
+
+Treba (ako se želi): `POST /api/lobbies/{code}/ready {playerId, playerToken}`, brojač spremnih u `game-state` / javnom stanju i događaj `PLAYER_READY`. Faza `NIGHT` (ili naracija "Početak igre") bi tada počela tek kad su svi spremni.
+
+## Način igre za ostale igrače
+Karta uloge ovisi o načinu: Uživo (uloga se vidi dok držiš prst) ili Online (dodir okreće). Gost način ne zna (vidi "Postavke sobe i javne sobe"), pa dobiva zadano Uživo. Isto je kad domaćin otvori sobu u drugom pregledniku.

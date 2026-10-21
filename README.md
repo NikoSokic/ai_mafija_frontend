@@ -30,3 +30,13 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Testiranje igre s više igrača
+Backend pokreće igru tek kad je soba puna (min. 4 igrača). Umjesto otvaranja više preglednika, sobu možeš popuniti testnim igračima:
+
+```bash
+node scripts/fill-lobby.mjs K7M2QZ      # doda onoliko igrača koliko fali
+node scripts/fill-lobby.mjs K7M2QZ 2    # doda točno 2 igrača (ili manje ako ne stane)
+```
+
+Skripta čita `VITE_API_URL` iz `.env`. Igrači se zovu Test1, Test2…; ne igraju umjesto tebe, samo zauzmu mjesta.
