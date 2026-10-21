@@ -1,5 +1,7 @@
 import { API_URL } from '../lib/config.ts'
 import type {
+  ActionRequest,
+  ActionResponse,
   CreateLobbyRequest,
   CreateLobbyResponse,
   GameStateResponse,
@@ -12,6 +14,7 @@ import type {
   PlayerRoleResponse,
   ReconnectRequest,
   ReconnectResponse,
+  ResolveNightResponse,
   Role,
 } from './types.ts'
 
@@ -62,6 +65,20 @@ const BACKEND_MESSAGES: Record<string, (code: string) => string> = {
   'Igra je već započela ili lobby nije u WAITING stanju.': () => 'Igra u toj sobi je već počela.',
   'Lobby nije pun.': () => 'Soba još nije puna.',
   'Nickname je obavezan.': () => 'Prvo upiši nadimak.',
+  // noćne akcije (spec 6.6)
+  'Dama ne može utišati igrača kojeg je Mafia odabrala za KILL.': () =>
+    'Mafija je noćas odabrala tog igrača. Odaberi nekog drugog.',
+  'Nije red na tvoju ulogu.': () => 'Još nije tvoj red. Pričekaj da te narator probudi.',
+  'Već si odigrao potez u ovoj fazi.': () => 'Već si odigrao potez ove noći.',
+  'Ne možeš ciljati mrtvog igrača.': () => 'Taj igrač više nije u igri. Odaberi nekog drugog.',
+  'Ne možeš ciljati mrtvog igrača kao drugu metu.': () => 'Taj igrač više nije u igri. Odaberi nekog drugog.',
+  'Mrtav igrač ne može izvršiti akciju.': () => 'Više nisi u igri, pa noću ne biraš metu.',
+  'Novinar mora odabrati dva igrača.': () => 'Odaberi dva različita igrača.',
+  'Novinar mora odabrati dva različita igrača.': () => 'Odaberi dva različita igrača.',
+  'Akcije se mogu slati samo tijekom noći.': () => 'Noć je već završila.',
+  'Noć se može obraditi samo dok je faza NIGHT.': () => 'Noć je već završila.',
+  'Igra je završena.': () => 'Igra je završena.',
+  'Samo host može izvršiti ovu operaciju.': () => 'Samo domaćin to može.',
 }
 
 // Greška za prikaz u sučelju. Sirova poruka backenda nije za igrače, pa ide samo u konzolu.
@@ -74,7 +91,7 @@ export function describeError(e: unknown, code = ''): string {
   if (known) return known(code)
   if (e.status === 400) return 'Postavke sobe nisu ispravne. Provjeri broj igrača i uloge.'
   if (e.status === 401) return 'Tvoja prijava u sobu više ne vrijedi. Uđi ponovno.'
-  if (e.status === 403) return 'Samo domaćin može pokrenuti igru.'
+  if (e.status === 403) return 'To sada ne možeš napraviti.'
   if (e.status >= 500) return 'Nešto je pošlo po zlu na poslužitelju. Pokušaj ponovno za trenutak.'
   return 'Nešto nije u redu. Pokušaj ponovno.'
 }
@@ -103,3 +120,13 @@ export const getPlayerRole = ({ playerId, playerToken }: PlayerAuth) =>
 
 export const reconnect = ({ playerId, playerToken }: PlayerAuth) =>
   request<ReconnectResponse>('/api/players/reconnect', post({ playerId, playerToken } satisfies ReconnectRequest))
+
+// Noćna akcija; za INVESTIGATE / COMPARE odgovor nosi rezultat
+export const submitAction = (body: ActionRequest) => request<ActionResponse>('/api/actions', post(body))
+
+// Samo domaćin: obradi noć odmah, i kad neke uloge još nisu odigrale (noć je zapela)
+export const resolveNight = (code: string, { playerId, playerToken }: PlayerAuth) =>
+  request<ResolveNightResponse>(
+    `/api/actions/resolve-night/${encodeURIComponent(code)}`,
+    post({ playerId, playerToken } satisfies HostActionRequest),
+  )

@@ -10,6 +10,12 @@ export type Winner = 'CITIZENS_WIN' | 'MAFIA_WIN'
 
 export type ActionType = 'KILL' | 'SILENCE' | 'SAVE' | 'INVESTIGATE' | 'COMPARE'
 
+/** Policajac: je li meta mafija (Dama je "MAFIA" tek kad mafija padne) */
+export type InvestigationResult = 'MAFIA' | 'NOT_MAFIA'
+
+/** Novinar: jesu li dvije mete u istom timu */
+export type JournalistResult = 'ISTI_TIM' | 'RAZLICIT_TIM'
+
 // ---------- zahtjevi ----------
 
 export interface CreateLobbyRequest {
@@ -31,6 +37,15 @@ export interface PlayerAuth {
 export type HostActionRequest = PlayerAuth
 export type PlayerRoleRequest = PlayerAuth
 export type ReconnectRequest = PlayerAuth
+
+/** POST /api/actions – druga meta samo za COMPARE */
+export interface ActionRequest {
+  playerId: number
+  playerToken: string
+  actionType: ActionType
+  targetPlayerId: number
+  secondTargetPlayerId?: number | null
+}
 
 // ---------- odgovori ----------
 
@@ -86,6 +101,29 @@ export interface AvailableActionResponse {
   type: ActionType
   targetPlayerIds: number[]
   requiresSecondTarget: boolean
+}
+
+/** Obrada noći: automatski nakon zadnje uloge ili POST /api/actions/resolve-night/{code} */
+export interface ResolveNightResponse {
+  message: string
+  phase: GamePhase
+  roundNumber: number
+  killedPlayerIds: number[]
+  silencedPlayerIds: number[]
+}
+
+/** POST /api/actions – rezultat istrage / usporedbe dolazi samo za tu akciju, inače null */
+export interface ActionResponse {
+  actionId: number
+  actionType: ActionType
+  playerId: number
+  targetPlayerId: number
+  message: string
+  investigationResult: InvestigationResult | null
+  journalistResult: JournalistResult | null
+  /** true kad je ova akcija bila zadnja i backend je odmah obradio noć */
+  nightResolved: boolean
+  resolveResult: ResolveNightResponse | null
 }
 
 export interface ReconnectResponse {

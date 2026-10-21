@@ -7,6 +7,7 @@ import HoldButton from '../components/HoldButton.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
 import Particles, { type ParticlesHandle } from '../components/Particles.tsx'
+import PlayerTile from '../components/PlayerTile.tsx'
 import RoleChip from '../components/RoleChip.tsx'
 import RoleComposition from '../components/RoleComposition.tsx'
 import RoleIcon from '../components/RoleIcon.tsx'
@@ -17,6 +18,7 @@ import Stepper from '../components/Stepper.tsx'
 import Switch from '../components/Switch.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import Toast, { Spinner } from '../components/Toast.tsx'
+import TurnBadge from '../components/TurnBadge.tsx'
 import { ROLE_KEYS, ROLES } from '../data/roles.ts'
 import { cx } from '../lib/cx.ts'
 import type { Theme } from '../lib/theme.ts'
@@ -84,6 +86,7 @@ export default function DevPage() {
         <IconButtonDemo />
         <AvatarDemo />
         <RolesDemo />
+        <PlayerTileDemo />
         <ChipDemo />
         <ControlsDemo />
         <SheetDemo />
@@ -266,6 +269,37 @@ function RolesDemo() {
       <Caption>RoleComposition – mini (javne sobe)</Caption>
       <div className="rounded-card border border-line bg-surface p-4">
         <RoleComposition counts={ROOM_COUNTS} variant="mini" />
+      </div>
+      <Caption>TurnBadge</Caption>
+      <div className="flex flex-wrap gap-2">
+        {ROLE_KEYS.filter((k) => ROLES[k].action).map((k) => (
+          <TurnBadge key={k} role={k} />
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+// Noćne mete: klik odabire do dvije (kao Novinar); Ana je onemogućena, Niko je "Ti"
+function PlayerTileDemo() {
+  const [selected, setSelected] = useState<number[]>([LEA.id])
+  const tags: Record<number, string> = { [NIKO.id]: 'Ti', [ANA.id]: 'Meta mafije' }
+  return (
+    <Section title="PlayerTile">
+      <div className="grid grid-cols-3 gap-2">
+        {LOBBY.slice(0, 6).map((p) => (
+          <PlayerTile
+            key={p.id}
+            name={p.nick}
+            emoji={p.emoji}
+            hue={p.hue}
+            tag={tags[p.id] ?? null}
+            selected={selected.includes(p.id)}
+            onSelect={() =>
+              setSelected((s) => (s.includes(p.id) ? s.filter((x) => x !== p.id) : [...s.slice(-1), p.id]))
+            }
+          />
+        ))}
       </div>
     </Section>
   )

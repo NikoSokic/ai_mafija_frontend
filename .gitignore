@@ -25,3 +25,6 @@ dist-ssr
 
 # Lokalne env varijable
 .env
+
+# Tokeni testnih igrača (scripts/fill-lobby.mjs)
+scripts/.bots/

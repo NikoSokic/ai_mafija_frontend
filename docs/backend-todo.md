@@ -59,3 +59,23 @@ Treba (ako se želi): `POST /api/lobbies/{code}/ready {playerId, playerToken}`, 
 
 ## Način igre za ostale igrače
 Karta uloge ovisi o načinu: Uživo (uloga se vidi dok držiš prst) ili Online (dodir okreće). Gost način ne zna (vidi "Postavke sobe i javne sobe"), pa dobiva zadano Uživo. Isto je kad domaćin otvori sobu u drugom pregledniku.
+
+## Noćni red (6.6, 10.1)
+`GAME_STATE_CHANGED` stiže nakon svake noćne akcije, ali javno stanje nema `currentTurnRole`. Zato svaki klijent nakon svake akcije ponovno dohvaća `GET /game-state` da sazna je li sad na redu (`canAct`). Radi, ali s 8 igrača to je 8 zahtjeva po potezu.
+
+Treba: događaj `NIGHT_TURN_CHANGED {roundNumber, currentTurnRole}` ili `currentTurnRole` u `PublicGameStateResponse`. Pazi na curenje informacija (10.12): klijent tada drugima i dalje prikazuje samo "Grad spava".
+
+## Rezultati noći (6.7, 10.1)
+`killedPlayerIds` i `silencedPlayerIds` stižu samo u `ActionResponse.resolveResult`, dakle samo igraču čija je akcija zatvorila noć (ili domaćinu preko "Završi noć"). Ostali iz javnog stanja vide samo tko je mrtav, a ne tko je utišan.
+
+Treba: događaj `NIGHT_RESOLVED {roundNumber, killedPlayerIds, silencedPlayerIds, phase}` ili ta polja u javnom stanju za zadnju noć.
+
+## Mafija noću (6.6, 10.1, 10.10)
+- **Suigrači:** `availableActions` ne kaže tko je u timu mafije, pa pločice suigrača nemaju oznaku "Tvoj tim" i mafija može odabrati svog. Treba `teammates` (vidi "Suigrači mafije na karti uloge") ili izbaciti suigrače iz `targetPlayerIds` za `KILL`.
+- **Odabir suigrača:** prototip na meti pokazuje koga je odabrao suigrač. Treba privatni kanal za tim mafije.
+- **Više mafijaša:** svaki mafijaš šalje svoj `KILL`, a backend uzme prvi. Zato objašnjenje u aplikaciji kaže "Ako vas je više, vrijedi odabir onoga tko prvi potvrdi." Kad backend uvede dogovor (svi isti odabir ili zadnji vrijedi), vratiti tekst iz prototipa: "Tvoj tim vidi tvoj odabir. Odluka postaje konačna kad svi iz mafije potvrde."
+
+## Kako je igrač ispao
+`game-state` ne kaže kako i kada je igrač ispao. Promatrač bi trebao vidjeti "Mafija te uklonila u noći 2" / "Grad te izbacio u danu 1". Frontend to zasad pamti sam (`aimafija.fate.{code}`) kad primijeti da je igrač umro, pa nakon prijave na drugom uređaju piše samo "Više nisi u igri".
+
+Treba: npr. `eliminatedHow: "NIGHT" | "VOTE"` i `eliminatedRound` u `CurrentPlayerGameStateResponse` (i u `LobbyPlayerResponse` za kraj igre).

@@ -1,7 +1,7 @@
 import { useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router'
-import { ApiError, describeError, getGameState } from '../api/rest.ts'
+import { ApiError, describeError, getGameState, reconnect } from '../api/rest.ts'
 import type { GamePhase, LobbyStatus, Winner } from '../api/types.ts'
 import Button from '../components/Button.tsx'
 import ConnectionToast from '../components/ConnectionToast.tsx'
@@ -15,6 +15,7 @@ import { ROLES, type RoleKey } from '../data/roles.ts'
 import type { Theme } from '../lib/theme.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore } from '../store/gameStore.ts'
+import { saveFate } from '../store/notes.ts'
 import { DEFAULT_ROOM_SETTINGS, loadRoomSettings } from '../store/roomSettings.ts'
 import { hasSeenRole, markRoleSeen } from '../store/seenRole.ts'
 import { clearSession, loadSession, type Session } from '../store/session.ts'
@@ -63,7 +64,26 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const [seen, setSeen] = useState(() => hasSeenRole(code))
   const [shown, setShown] = useState<Shown | null>(null)
   const [transition, setTransition] = useState<{ kind: 'night' | 'day'; title: string } | null>(null)
+  // noć ostaje na ekranu dok igrač gleda rezultat istrage / usporedbe
+  const [holdNight, setHoldNight] = useState(false)
+  // null dok se ne zna (provjera nije gotova ili nije uspjela)
+  const [hostFlag, setHostFlag] = useState<boolean | null>(null)
   const requestId = useRef(0)
+
+  // Tko je domaćin zna samo reconnect (docs/backend-todo.md)
+  useEffect(() => {
+    let active = true
+    reconnect(session)
+      .then((res) => {
+        if (active) setHostFlag(res.host)
+      })
+      .catch(() => {
+        // bez odgovora se pogađa iz popisa igrača
+      })
+    return () => {
+      active = false
+    }
+  }, [session])
 
   // Privatno stanje (uloga, živ/mrtav…) dolazi samo iz GET-a; zakašnjeli odgovor se odbacuje
   const refresh = useCallback(() => {
@@ -71,6 +91,12 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     getGameState(code, session)
       .then((state) => {
         if (id !== requestId.current) return
+        // Backend ne kaže kako je igrač ispao, pa se to zapamti kad se dogodi:
+        // ako je umro dok je bila noć, ubila ga je mafija, inače je izbačen glasanjem
+        const prev = useGameStore.getState().gameState
+        if (prev?.lobbyCode === code && prev.currentPlayer.alive && !state.currentPlayer.alive) {
+          saveFate(code, { how: prev.phase === 'NIGHT' ? 'night' : 'day', round: prev.roundNumber ?? 1 })
+        }
         useGameStore.getState().setGameState(state)
         setSnap({
           status: state.lobbyStatus,
@@ -130,9 +156,10 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     targetRef.current = target
   })
 
-  // Što je na ekranu mijenja se tek kad nije u tijeku prijelaz. Promjena noć ↔ dan (i ulaz u noć
-  // nakon uloge) ide kroz PhaseTransition, sve ostalo odmah.
-  if (target && !transition && (!shown || !sameShown(shown, target))) {
+  // Što je na ekranu mijenja se tek kad nije u tijeku prijelaz i noć ne čeka igrača. Promjena
+  // noć ↔ dan (i ulaz u noć nakon uloge) ide kroz PhaseTransition, sve ostalo odmah.
+  const waitForNight = holdNight && shown?.view === 'night'
+  if (target && !transition && !waitForNight && (!shown || !sameShown(shown, target))) {
     const changesSky = shown && shown.view !== target.view && target.view !== 'end'
     if (!changesSky || reduceMotion) {
       setShown(target)
@@ -152,15 +179,33 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
 
   const theme: Theme = shown ? themeOf(shown) : 'night'
   const mode = loadRoomSettings(code)?.mode ?? DEFAULT_ROOM_SETTINGS.mode
+  // Kao u lobbyju: bez odgovora reconnecta domaćin je igrač s najmanjim id-om (sprema se prvi)
+  const firstId = gameState?.players.length ? Math.min(...gameState.players.map((p) => p.id)) : null
+  const isHost = hostFlag ?? firstId === session.playerId
 
   let content = null
   if (shown?.view === 'role') {
     // uloga dolazi iz GET-a; bez nje se kartica ne prikazuje
     if (role) content = <RoleReveal role={role} mode={mode} onReady={handleReady} />
   } else if (shown?.view === 'night') {
-    content = <NightView round={shown.round} role={role} />
+    if (gameState) {
+      content = (
+        <NightView
+          key={shown.round}
+          code={code}
+          round={shown.round}
+          role={role}
+          mode={mode}
+          session={session}
+          state={gameState}
+          isHost={isHost}
+          onRefresh={refresh}
+          onHoldChange={setHoldNight}
+        />
+      )
+    }
   } else if (shown?.view === 'day') {
-    content = <DayView round={shown.round} tieBreak={shown.tieBreak} role={role} />
+    content = <DayView code={code} round={shown.round} tieBreak={shown.tieBreak} role={role} />
   } else if (shown?.view === 'end') {
     content = <EndView winner={shown.winner} />
   }
