@@ -3,6 +3,7 @@ import type {
   GameStateResponse,
   LobbyDetailsResponse,
   LobbyPlayerResponse,
+  LobbyRoleResponse,
   LobbyStatus,
   PublicGameStateResponse,
   ResolveVoteResponse,
@@ -15,6 +16,8 @@ export interface Lobby {
   maxPlayers: number
   /** po id-u, to je redoslijed ulaska (o njemu ovise prozori u gradu) */
   players: LobbyPlayerResponse[]
+  /** sastav uloga koji je domaćin odabrao */
+  roles: LobbyRoleResponse[]
 }
 
 interface GameStore {
@@ -99,6 +102,7 @@ export const useGameStore = create<GameStore>((set, get) => {
           code: details.code,
           status: details.status,
           maxPlayers: details.maxPlayers,
+          roles: details.roles,
           players:
             previous?.code === details.code
               ? mergePlayers(previous.players, details.players)

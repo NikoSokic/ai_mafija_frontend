@@ -15,8 +15,9 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 
 - Prva noć počinje pauzom od 30 s (igrači gledaju kartu uloge), ostale pauzom od 10 s (prijelaz i naracija).
 - Redoslijed: Mafija → Dama → Doktor → Policajac → Novinar. Uloge kojih u igri nema se preskaču.
-- Svaki potez traje najviše 30 s. Tko ne odigra, gubi potez. Kad svi igrači poteza odigraju, odmah ide sljedeći.
-- Ako je uloga mrtva, njezin potez se **glumi** (nasumično 8–15 s), da nitko ne zna da je mrtva.
+- Narator na početku noći kaže svima da zatvore oči, a zatim budi uloge iz sastava redom (Mafija, Dama, Doktor, Policajac, Novinar). Na prijelazu uspava prethodnu ulogu i budi sljedeću ("Mafijo, zatvorite oči. Dama, otvori oči…"); zadnju uspava na početku jutra.
+- Svaki potez traje **uvijek** 26 s: 6 s naracije + 20 s za odabir. Tko odigra ranije, čeka ("Potez je poslan"). Tko ne odigra, gubi potez. Mafija smije mijenjati metu do isteka roka.
+- Ako je uloga mrtva, narator je i dalje pozove, a njezin potez se **glumi** jednako dugo, pa se iz trajanja noći ne može zaključiti tko je živ.
 - **Mafija:** svi mafijaši vide odabir suigrača i smiju mijenjati metu. Potez završava kad svi odaberu istu metu. Ako istekne rok, vrijedi većina; kod izjednačenja te noći nitko ne strada. Mafija ne može ciljati svoj tim.
 - **Dama:** dok je Mafija živa, utiša jednog igrača (ne smije metu mafije). Utišani idući dan ne govori i ne glasa. Kad Mafija pogine, Dama u potezu mafije ubija i više ne utišava (njezin potez se tada glumi).
 - **Doktor:** štiti bilo kojeg živog igrača, i sebe, i istog igrača više noći zaredom. Ako dva Doktora zaštite istog igrača, on umire (predoziranje).

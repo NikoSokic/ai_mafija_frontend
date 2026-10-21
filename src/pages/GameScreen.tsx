@@ -8,6 +8,7 @@ import ConnectionToast from '../components/ConnectionToast.tsx'
 import DayView from '../components/game/DayView.tsx'
 import EliminationOverlay from '../components/game/EliminationOverlay.tsx'
 import EndView from '../components/game/EndView.tsx'
+import NarratorSheet from '../components/game/NarratorSheet.tsx'
 import NightView from '../components/game/NightView.tsx'
 import PhaseTransition from '../components/game/PhaseTransition.tsx'
 import RoleReveal from '../components/game/RoleReveal.tsx'
@@ -17,10 +18,21 @@ import ThemeRoot from '../components/ThemeRoot.tsx'
 import Toast from '../components/Toast.tsx'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { ROLES, type RoleKey } from '../data/roles.ts'
+import {
+  endNarration,
+  farewellNarration,
+  morningNarration,
+  type Narration,
+  nightNarration,
+  startNarration,
+  tieNarration,
+  turnNarration,
+} from '../lib/narration.ts'
 import { playerEmoji } from '../lib/playerLook.ts'
 import type { Theme } from '../lib/theme.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore } from '../store/gameStore.ts'
+import { loadNarrated, markNarrated } from '../store/narrated.ts'
 import { loadProfile } from '../store/profile.ts'
 import { DEFAULT_ROOM_SETTINGS, loadRoomSettings } from '../store/roomSettings.ts'
 import { hasSeenRole, markRoleSeen } from '../store/seenRole.ts'
@@ -31,9 +43,12 @@ type View = 'role' | 'night' | 'day' | 'vote' | 'end'
 // Što ekran prikazuje; iz toga se računaju tema i naslovi
 type Shown = { view: View; round: number; tieBreak: boolean; winner: Winner | null }
 
-// Ishod glasanja koji igrači vide prije noći: izbacivanje (overlay) ili "nitko ne odlazi" (toast).
-// Izjednačenje nema ishod – odmah se glasa ponovno.
-type Outcome = { kind: 'eliminated'; playerId: number } | { kind: 'none'; title: string; text: string }
+// Ishod glasanja koji igrači vide prije noći: izbacivanje (overlay, pa oproštaj naratora)
+// ili "nitko ne odlazi" (toast). Izjednačenje nema ishod – odmah se glasa ponovno.
+type Outcome =
+  | { kind: 'eliminated'; playerId: number }
+  | { kind: 'farewell'; playerId: number }
+  | { kind: 'none'; title: string; text: string }
 
 // tekst ostaje i nakon zatvaranja, da toast ne ostane prazan dok izlazi
 type ToastState = { open: boolean; title: string; text: string }
@@ -75,6 +90,7 @@ function publicOf(state: GameStateResponse): PublicGameStateResponse {
     serverTime: state.serverTime,
     silencedPlayerIds: state.silencedPlayerIds,
     nightKilledPlayerIds: state.nightKilledPlayerIds,
+    currentTurnRole: state.currentTurnRole,
     voting: voting.votingOpen
       ? { eligibleVoterIds: voting.eligibleVoterIds, votes: voting.votes, tiedPlayerIds: voting.tiedPlayerIds }
       : null,
@@ -95,6 +111,44 @@ function outcomeOf(r: ResolveVoteResponse): Outcome | null {
   return { kind: 'none', title: 'Danas nitko ne odlazi', text: 'Suzdržanih je bilo barem koliko i glasova za vodećeg.' }
 }
 
+// Narator (spec 7) prati ono što je na ekranu: svaki ekran ima svoje tekstove s ključem po rundi,
+// a prikazuje se prvi nepročitani. Kad backend promijeni fazu, ekran se promijeni, stari tekst
+// više ne odgovara i sheet se zatvori. Noću narator nakon uvoda budi ulogu koja je na redu.
+function narrationsOf(
+  shown: Shown,
+  game: PublicGameStateResponse,
+  code: string,
+  outcome: Outcome | null,
+  ready: boolean,
+  roles: string[] | null,
+): Narration[] {
+  const nick = (id: number) => game.players.find((p) => p.id === id)?.nickname ?? '?'
+  switch (shown.view) {
+    case 'role':
+      return ready ? [startNarration()] : []
+    case 'night': {
+      const intro = nightNarration(code, shown.round)
+      const turn = game.phase === 'NIGHT' && game.currentTurnRole ? turnNarration(shown.round, game.currentTurnRole, roles) : null
+      return turn ? [intro, turn] : [intro]
+    }
+    case 'day':
+      return [
+        morningNarration(
+          code,
+          shown.round,
+          game.nightKilledPlayerIds.map(nick),
+          game.silencedPlayerIds.map(nick),
+          roles,
+        ),
+      ]
+    case 'vote':
+      if (outcome?.kind === 'farewell') return [farewellNarration(shown.round, nick(outcome.playerId))]
+      return shown.tieBreak ? [tieNarration(shown.round, game.tiedPlayerIds.map(nick))] : []
+    case 'end':
+      return [endNarration(shown.winner)]
+  }
+}
+
 // GameScreen je jedini koji zna za fazu (spec 11): prema njoj bira podekran
 // i pokreće PhaseTransition kad se promijeni noć ↔ dan.
 function GameScreen({ code, session }: { code: string; session: Session }) {
@@ -105,6 +159,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const publicState = useGameStore((s) => s.publicState)
   const gameState = useGameStore((s) => s.gameState)
   const voteResult = useGameStore((s) => s.voteResult)
+  const lobby = useGameStore((s) => s.lobby)
   const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
   // zadnje poznato javno stanje igre, iz GET /game-state ili iz događaja GAME_STATE_CHANGED
   const [snap, setSnap] = useState<PublicGameStateResponse | null>(null)
@@ -117,6 +172,11 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   // glasanje ostaje na ekranu dok traje ishod (overlay izbacivanja ili toast)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [toast, setToast] = useState<ToastState>({ open: false, title: '', text: '' })
+  // ključevi naracija koje je igrač već pročitao (sessionStorage)
+  const [narrated, setNarrated] = useState(() => loadNarrated(code))
+  const [voiceOn, setVoiceOn] = useState(() => loadRoomSettings(code)?.voice ?? DEFAULT_ROOM_SETTINGS.voice)
+  // pritisnuo je Spreman sam, a naracija početka igre još traje
+  const [ready, setReady] = useState(false)
   const requestId = useRef(0)
 
   // Privatno stanje (uloga, potez…) dolazi samo iz GET-a; zakašnjeli odgovor se odbacuje
@@ -168,12 +228,6 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     }
   }
 
-  // Mjesto za naratora (spec 7): kad se pojavi novi dan, ovdje će se otvoriti NarratorSheet
-  // s jutarnjim vijestima iz izvještaja noći. Timer rasprave tada treba stajati dok traje naracija.
-  const onPhaseIntro = useCallback(() => {
-    // narator još ne postoji
-  }, [])
-
   const roleName = gameState?.currentPlayer.role ?? null
   const role: RoleKey | null = roleName && roleName in ROLES ? (roleName as RoleKey) : null
 
@@ -195,6 +249,13 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     targetRef.current = target
   })
 
+  // Oproštaj naratora zadržava glasanje samo dok traje noć nakon njega; ako backend ode dalje
+  // (dan ili kraj igre), narator ne smije zaustaviti igru
+  if (currentOutcome?.kind === 'farewell' && (target?.view === 'day' || target?.view === 'end')) {
+    currentOutcome = null
+    setOutcome(null)
+  }
+
   // Što je na ekranu mijenja se tek kad nije u tijeku prijelaz i ekran ne čeka igrača (rezultat
   // istrage noću, ishod glasanja danju). Promjena noć ↔ dan (i ulaz u noć nakon uloge) ide kroz
   // PhaseTransition, sve ostalo (npr. dan → glasanje) odmah.
@@ -214,9 +275,15 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     }
   }
 
-  function handleReady() {
+  function finishReady() {
     markRoleSeen(code)
     setSeen(true)
+  }
+
+  // Prije prve noći narator pozdravi grad (prototip); nakon osvježavanja se to ne ponavlja
+  function handleReady() {
+    if (narrated.includes(startNarration().key)) finishReady()
+    else setReady(true)
   }
 
   // Igra još nije počela ili soba ne postoji – to pokazuje lobby
@@ -227,6 +294,31 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const isHost = snap?.players.some((p) => p.id === session.playerId && p.host) ?? false
   const eliminated =
     currentOutcome?.kind === 'eliminated' ? snap?.players.find((p) => p.id === currentOutcome.playerId) : undefined
+
+  // sastav uloga iz GET /api/lobbies: po njemu narator zna koju ulogu uspavljuje
+  const composition = lobby?.code === code ? lobby.roles.filter((r) => r.count > 0).map((r) => r.roleName) : []
+  const roleNames = composition.length ? composition : null
+
+  // Narator čeka da prođu prijelaz faze, overlay izbacivanja i toast ishoda, a dalje ide sam
+  const candidate = shown && snap
+    ? narrationsOf(shown, snap, code, currentOutcome, ready, roleNames).find((n) => !narrated.includes(n.key))
+    : undefined
+  const narration = candidate && !transition && !eliminated && !toast.open ? candidate : null
+
+  function handleNarrationNext() {
+    if (!narration) return
+    markNarrated(code, narration.key)
+    setNarrated((keys) => [...keys, narration.key])
+    if (narration.key === startNarration().key) finishReady()
+    if (currentOutcome?.kind === 'farewell') setOutcome(null)
+  }
+
+  // Nakon izbacivanja narator se oprašta prije noći (spec 6.8), osim kad je igra time gotova
+  function handleEliminationNext(playerId: number, nickname: string) {
+    const farewell = shown ? farewellNarration(shown.round, nickname) : null
+    const tell = farewell && !narrated.includes(farewell.key) && target?.view !== 'end'
+    setOutcome(tell ? { kind: 'farewell', playerId } : null)
+  }
 
   let content = null
   if (shown?.view === 'role') {
@@ -261,7 +353,6 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
           session={session}
           game={snap}
           isHost={isHost}
-          onPhaseIntro={onPhaseIntro}
         />
       )
     }
@@ -316,7 +407,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
             nickname={eliminated.nickname}
             emoji={eliminated.id === session.playerId ? myEmoji : playerEmoji(eliminated.id)}
             isMe={eliminated.id === session.playerId}
-            onNext={() => setOutcome(null)}
+            onNext={() => handleEliminationNext(eliminated.id, eliminated.nickname)}
           />
         )}
       </AnimatePresence>
@@ -334,6 +425,13 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
         }
         title={toast.title}
         text={toast.text}
+      />
+      <NarratorSheet
+        narration={narration}
+        voiceOn={voiceOn}
+        canSpeak={mode === 'online' || isHost}
+        onToggleVoice={() => setVoiceOn((v) => !v)}
+        onNext={handleNarrationNext}
       />
       {transition && (
         <PhaseTransition

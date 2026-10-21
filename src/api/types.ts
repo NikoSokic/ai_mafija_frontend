@@ -279,6 +279,8 @@ export interface GameStateResponse {
   silencedPlayerIds: number[]
   /** tko je stradao u noći prije tekućeg dana */
   nightKilledPlayerIds: number[]
+  /** koja je uloga noću budna (MAFIA, DAMA, Doktor, Policajac, Novinar); null u uvodu noći i danju */
+  currentTurnRole: string | null
 }
 
 /** Javno stanje igre – stiže u `data` događaja GAME_STATE_CHANGED i GAME_FINISHED */
@@ -298,6 +300,8 @@ export interface PublicGameStateResponse {
   nightKilledPlayerIds: number[]
   /** null dok glasanje nije otvoreno */
   voting: PublicVotingResponse | null
+  /** koja je uloga noću budna (MAFIA, DAMA, Doktor, Policajac, Novinar); null u uvodu noći i danju */
+  currentTurnRole: string | null
 }
 
 export interface PlayerLeftResponse {

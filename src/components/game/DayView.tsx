@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { describeError, extendDiscussion, startVoting } from '../../api/rest.ts'
 import type { PublicGameStateResponse } from '../../api/types.ts'
 import { DEFAULT_EMOJI } from '../../data/emojis.ts'
@@ -33,8 +33,6 @@ type DayViewProps = {
   /** javno stanje igre: igrači, izvještaj noći, rok rasprave */
   game: PublicGameStateResponse
   isHost: boolean
-  /** dan se pojavio na ekranu – mjesto za jutarnju naraciju */
-  onPhaseIntro: () => void
 }
 
 // tekst ostaje i nakon zatvaranja, da toast ne ostane prazan dok izlazi
@@ -42,15 +40,11 @@ type ErrorToast = { open: boolean; title: string; text: string }
 
 // Dan (spec 6.7): izvještaj noći, rasprava s timerom i popis igrača.
 // Rok rasprave je na serveru, pa "+30 s" i "Pokreni glasanje" vrijede za sve igrače.
-export default function DayView({ code, round, role, mode, session, game, isHost, onPhaseIntro }: DayViewProps) {
+export default function DayView({ code, round, role, mode, session, game, isHost }: DayViewProps) {
   const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
   const timer = useCountdown(game.phaseEndsAt, DISCUSSION_S)
   const [busy, setBusy] = useState<'extend' | 'vote' | null>(null)
   const [error, setError] = useState<ErrorToast>({ open: false, title: '', text: '' })
-
-  useEffect(() => {
-    onPhaseIntro()
-  }, [onPhaseIntro])
 
   const meId = session.playerId
   const players = useMemo(() => [...game.players].sort((a, b) => a.id - b.id), [game.players])

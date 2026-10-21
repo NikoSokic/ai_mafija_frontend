@@ -27,7 +27,7 @@ Backend sada prvu noć počinje pauzom od 30 s, pa igrači stignu pogledati kart
 Treba (ako se želi): `POST /api/lobbies/{code}/ready {playerId, playerToken}`, brojač spremnih u javnom stanju i događaj `PLAYER_READY`.
 
 ## Noćni red (6.6, 10.1)
-Backend šalje `GAME_STATE_CHANGED` pri svakom prijelazu poteza, ali javno stanje (namjerno) ne kaže tko je na redu. Svaki klijent zato nakon svakog događaja ponovno dohvaća `GET /game-state` da sazna `canAct`. Radi, ali s 8 igrača to je 8 zahtjeva po potezu. Bolje bi bilo slati potez privatno samo igračima te uloge (npr. STOMP user destination), što traži autentikaciju na WebSocketu.
+Backend šalje `GAME_STATE_CHANGED` pri svakom prijelazu poteza, a javno stanje sada ima i `currentTurnRole` (za naratora). Svaki klijent ipak nakon svakog događaja ponovno dohvaća `GET /game-state` da sazna `canAct`; s `currentTurnRole` bi to mogli raditi samo igrači te uloge, ali to je zasebna izmjena. Radi, ali s 8 igrača to je 8 zahtjeva po potezu. Bolje bi bilo slati potez privatno samo igračima te uloge (npr. STOMP user destination), što traži autentikaciju na WebSocketu.
 
 ## Igraj ponovno (6.9)
 Backend nema "nova igra s istim igračima". Na kraju igre domaćin zato dobiva "Nova soba s istim postavkama": otvori se `/nova` s uloge, brojem igrača i načinom iz `aimafija.room`, a ostali igrači moraju ući novim kodom.
@@ -36,6 +36,8 @@ Treba: `POST /api/lobbies/{code}/rematch {playerId, playerToken}` (samo domaćin
 
 ## AI narator (10.9)
 U backendu još nema AI integracije. Prijedlog: servis koji iz događaja (`NIGHT_RESOLVED`, `VOTE_RESOLVED`…) generira kratki tekst i šalje ga kao `NARRATION`; TTS ostaje na klijentu.
+
+Zasad frontend tekstove slaže sam (`src/lib/narration.ts`, nekoliko varijanti odabranih po kodu sobe i rundi, pa svi vide isto). `NARRATION {kind, text}` bi zamijenio te funkcije, a `NarratorSheet` ostaje isti. Timer rasprave ne staje dok traje jutarnja naracija, jer rok broji server.
 
 ## Autorizacija i sigurnost (10.8, 10.15)
 - `GET /api/lobbies/{code}` i javno stanje su dostupni svakome tko zna kod (samo javni podaci).
@@ -55,6 +57,8 @@ Prije pokretanja nove verzije backenda pokreni `db/migrations/001_rokovi_suzdrza
 - `players[].host` za krunu i domaćinove gumbe, `eliminatedHow` / `eliminatedRound` za promatrača ("Mafija te uklonila u noći 2"). Lokalni `aimafija.fate` više ne postoji.
 - `ApiErrorResponse.code`: `describeError` u `src/api/rest.ts` prevodi po kodu.
 - `GET /api/roles` za ekran Nova soba.
+- `currentTurnRole` u javnom stanju (null u uvodu noći i danju): narator budi ulogu na redu, a iz sastava (`GET /api/lobbies/{code}` → `roles`) zna koju je prije uspavao.
+- Potez traje uvijek `TURN_NARRATION` (6 s) + `NIGHT_TURN` (20 s) i ne završava ranije kad svi odigraju; glumljeni potez mrtve uloge traje jednako. `ActionResponse.nightResolved` zato iz `POST /api/actions` više nikad nije `true`.
 - `NIGHT_RESOLVED`, `VOTING_STARTED` i `PLAYER_LEFT` frontend preskače, jer odmah za njima stiže `GAME_STATE_CHANGED` s istim stanjem.
 
 ## Frontend još treba prilagoditi
