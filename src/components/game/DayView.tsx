@@ -1,14 +1,13 @@
-import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { GameStateResponse } from '../../api/types.ts'
+import { describeError, extendDiscussion, startVoting } from '../../api/rest.ts'
+import type { PublicGameStateResponse } from '../../api/types.ts'
 import { DEFAULT_EMOJI } from '../../data/emojis.ts'
 import type { RoleKey } from '../../data/roles.ts'
 import { useCountdown } from '../../lib/useCountdown.ts'
 import { playerEmoji, playerHue } from '../../lib/playerLook.ts'
-import { loadFate } from '../../store/notes.ts'
 import { loadProfile } from '../../store/profile.ts'
-import type { NightReport } from '../../store/reports.ts'
 import type { Mode } from '../../store/roomSettings.ts'
+import type { Session } from '../../store/session.ts'
 import Avatar from '../Avatar.tsx'
 import Banner from '../Banner.tsx'
 import Button from '../Button.tsx'
@@ -18,10 +17,11 @@ import { Screen, ScreenBody, ScreenFooter } from '../Screen.tsx'
 import Section from '../Section.tsx'
 import Skyline from '../Skyline.tsx'
 import TimerRing from '../TimerRing.tsx'
+import Toast from '../Toast.tsx'
 import PhaseHeader from './PhaseHeader.tsx'
-import { fateText, isSilenced } from './playerStatus.ts'
+import { fateText } from './playerStatus.ts'
 
-// Rasprava traje 2:30 (spec 6.7); timer je lokalan, backend ga nema
+// Rasprava traje 2:30 (docs/pravila-igre.md); rok broji server, ovo je samo puni krug prstena
 const DISCUSSION_S = 150
 
 type DayViewProps = {
@@ -29,63 +29,65 @@ type DayViewProps = {
   round: number
   role: RoleKey | null
   mode: Mode
-  /** zadnji GET /game-state */
-  state: GameStateResponse
+  session: Session
+  /** javno stanje igre: igrači, izvještaj noći, rok rasprave */
+  game: PublicGameStateResponse
   isHost: boolean
-  /** za krunu u popisu */
-  hostId: number | null
-  /** što se dogodilo noćas; null kad ovaj uređaj nije pratio kraj noći */
-  report: NightReport | null
   /** dan se pojavio na ekranu – mjesto za jutarnju naraciju */
   onPhaseIntro: () => void
-  /** prebaci ovaj ekran na glasanje */
-  onStartVote: () => void
 }
 
+// tekst ostaje i nakon zatvaranja, da toast ne ostane prazan dok izlazi
+type ErrorToast = { open: boolean; title: string; text: string }
+
 // Dan (spec 6.7): izvještaj noći, rasprava s timerom i popis igrača.
-// DayView se montira iznova svaki dan, pa timer kreće od početka.
-export default function DayView({
-  code,
-  round,
-  role,
-  mode,
-  state,
-  isHost,
-  hostId,
-  report,
-  onPhaseIntro,
-  onStartVote,
-}: DayViewProps) {
+// Rok rasprave je na serveru, pa "+30 s" i "Pokreni glasanje" vrijede za sve igrače.
+export default function DayView({ code, round, role, mode, session, game, isHost, onPhaseIntro }: DayViewProps) {
   const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
-  const timer = useCountdown(DISCUSSION_S)
+  const timer = useCountdown(game.phaseEndsAt, DISCUSSION_S)
+  const [busy, setBusy] = useState<'extend' | 'vote' | null>(null)
+  const [error, setError] = useState<ErrorToast>({ open: false, title: '', text: '' })
 
   useEffect(() => {
     onPhaseIntro()
   }, [onPhaseIntro])
 
-  const me = state.currentPlayer
-  const silenced = isSilenced(state)
-  // timer osvježava ekran svake sekunde, pa se localStorage čita samo kad se promijeni živ/mrtav
-  const fate = useMemo(() => (me.alive ? null : loadFate(code)), [code, me.alive])
-  const players = useMemo(() => [...state.players].sort((a, b) => a.id - b.id), [state.players])
+  const meId = session.playerId
+  const players = useMemo(() => [...game.players].sort((a, b) => a.id - b.id), [game.players])
+  const me = players.find((p) => p.id === meId)
+  const alive = me?.alive ?? true
+  const silenced = game.silencedPlayerIds
+  const hostId = players.find((p) => p.host)?.id
   const alivePlayers = players.filter((p) => p.alive)
   const deadPlayers = players.filter((p) => !p.alive)
 
-  const emojiOf = (id: number) => (id === me.playerId ? myEmoji : playerEmoji(id))
+  const emojiOf = (id: number) => (id === meId ? myEmoji : playerEmoji(id))
   const nicknameOf = (id: number) => players.find((p) => p.id === id)?.nickname ?? '?'
 
-  // Redovi izvještaja kao u prototipu. Tko je utišan zna samo utišani igrač (docs/backend-todo.md).
+  async function extend() {
+    setBusy('extend')
+    try {
+      await extendDiscussion(code, session)
+    } catch (e) {
+      setError({ open: true, title: 'Rasprava nije produžena', text: describeError(e, code) })
+    }
+    setBusy(null)
+  }
+
+  // Glasanje stiže svima događajem i ovaj ekran se zamijeni, pa gumb ostaje zauzet do tada
+  async function startVote() {
+    setBusy('vote')
+    try {
+      await startVoting(code, session)
+    } catch (e) {
+      setError({ open: true, title: 'Glasanje nije pokrenuto', text: describeError(e, code) })
+      setBusy(null)
+    }
+  }
+
+  // Redovi izvještaja kao u prototipu: stradali, pa utišani
   const rows: ReactNode[] = []
-  if (!report) {
-    rows.push(
-      <ReportRow
-        key="unknown"
-        lead={<RoundIcon className="bg-surface-2 text-muted" icon="info" />}
-        title="Nema izvještaja"
-        text="Ovaj uređaj nije pratio kraj noći."
-      />,
-    )
-  } else if (report.killed.length === 0) {
+  if (game.nightKilledPlayerIds.length === 0) {
     rows.push(
       <ReportRow
         key="none"
@@ -95,7 +97,7 @@ export default function DayView({
       />,
     )
   }
-  for (const id of report?.killed ?? []) {
+  for (const id of game.nightKilledPlayerIds) {
     rows.push(
       <ReportRow
         key={`killed-${id}`}
@@ -106,12 +108,12 @@ export default function DayView({
       />,
     )
   }
-  if (silenced) {
+  for (const id of silenced) {
     rows.push(
       <ReportRow
-        key="silenced"
-        lead={<Avatar emoji={myEmoji} hue={playerHue(me.playerId)} size={44} muted />}
-        title={me.nickname}
+        key={`silenced-${id}`}
+        lead={<Avatar emoji={emojiOf(id)} hue={playerHue(id)} size={44} muted />}
+        title={nicknameOf(id)}
         text="Utišan do kraja dana"
         trail="mute"
       />,
@@ -122,14 +124,14 @@ export default function DayView({
     <Screen>
       <PhaseHeader icon="sun" title={`Dan ${round}`} role={role} code={code} />
       <ScreenBody withSky>
-        {silenced && (
+        {alive && silenced.includes(meId) && (
           <Banner icon="mute" title="Utišan si">
             Danas ne smiješ govoriti ni glasati.
           </Banner>
         )}
-        {!me.alive && (
+        {!alive && (
           <Banner icon="ghost" title="Promatraš igru">
-            {fateText(fate)}. Ne otkrivaj uloge.
+            {fateText(me)}. Ne otkrivaj uloge.
           </Banner>
         )}
 
@@ -145,10 +147,10 @@ export default function DayView({
               <p className="text-[13px] leading-[1.45] text-muted">Tko se ponašao sumnjivo?</p>
               {isHost && (
                 <div className="mt-2 flex gap-1.5">
-                  <Button variant="secondary" size="xs" onClick={() => timer.add(30)}>
+                  <Button variant="secondary" size="xs" disabled={busy !== null} onClick={extend}>
                     +30 s
                   </Button>
-                  <Button variant="secondary" size="xs" onClick={onStartVote}>
+                  <Button variant="secondary" size="xs" disabled={busy !== null} onClick={startVote}>
                     Preskoči
                   </Button>
                 </div>
@@ -160,15 +162,14 @@ export default function DayView({
         <Section title="U igri" aside={`${alivePlayers.length} od ${players.length}`}>
           <div>
             {alivePlayers.map((p) => {
-              const isMe = p.id === me.playerId
-              const muted = isMe && silenced
+              const muted = silenced.includes(p.id)
               return (
                 <div key={p.id} className="flex items-center gap-3 border-t border-line py-2.5 first:border-t-0">
                   <Avatar emoji={emojiOf(p.id)} hue={playerHue(p.id)} size={40} host={p.id === hostId} muted={muted} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center">
                       <span className="truncate text-[15px] font-semibold">{p.nickname}</span>
-                      {isMe && <MeTag />}
+                      {p.id === meId && <MeTag />}
                     </div>
                     {muted && <div className="text-[13px] text-muted">Utišan</div>}
                   </div>
@@ -195,29 +196,29 @@ export default function DayView({
       </ScreenBody>
       <Skyline players={players} stateOf={(p) => (p.alive ? 'on' : 'off')} />
       <ScreenFooter rise className="bg-sky">
-        {/* Backend otvara glasanje odmah na početku dana, pa ovo mijenja samo ekran na ovom
-            uređaju; domaćin ga ne može pokrenuti svima (docs/backend-todo.md) */}
         {isHost ? (
-          <Button onClick={onStartVote}>
+          <Button disabled={busy !== null} onClick={startVote}>
             <Icon name="vote" size={20} />
-            Pokreni glasanje
+            {busy === 'vote' ? 'Pokrećem glasanje…' : 'Pokreni glasanje'}
           </Button>
         ) : (
-          <>
-            <p className="pt-2 pb-1 text-center text-[13px] leading-[1.45] text-muted">
-              Glasanje počinje kad domaćin odluči ili istekne vrijeme.
-            </p>
-            {timer.left === 0 && (
-              <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
-                <Button onClick={onStartVote}>
-                  <Icon name="vote" size={20} />
-                  Glasaj
-                </Button>
-              </motion.div>
-            )}
-          </>
+          <p className="pt-2 pb-1 text-center text-[13px] leading-[1.45] text-muted">
+            Glasanje počinje kad domaćin odluči ili istekne vrijeme.
+          </p>
         )}
       </ScreenFooter>
+      <Toast
+        open={error.open}
+        onClose={() => setError((e) => ({ ...e, open: false }))}
+        duration={4000}
+        leading={
+          <span className="text-accent">
+            <Icon name="info" size={22} />
+          </span>
+        }
+        title={error.title}
+        text={error.text}
+      />
     </Screen>
   )
 }

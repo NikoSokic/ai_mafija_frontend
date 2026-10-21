@@ -19,8 +19,12 @@ function applyEvent(event: LobbyEvent) {
     case 'GAME_FINISHED':
       store.gameFinished(event.data)
       break
+    case 'VOTE_RESOLVED':
+      store.voteResolved(event.data)
+      break
     default:
-      // backend može dodati nove događaje (spec 10.1) – dok ih klijent ne zna, preskače ih
+      // NIGHT_RESOLVED, VOTING_STARTED i PLAYER_LEFT donose isto što i GAME_STATE_CHANGED koji
+      // stiže odmah za njima; nove događaje (spec 10.1) klijent preskače dok ih ne zna
       break
   }
 }

@@ -17,3 +17,11 @@ export function markRoleSeen(code: string) {
     // nema spremanja
   }
 }
+
+export function clearSeenRole(code: string) {
+  try {
+    localStorage.removeItem(key(code))
+  } catch {
+    // nema što obrisati
+  }
+}

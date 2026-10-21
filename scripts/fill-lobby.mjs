@@ -4,7 +4,8 @@
 //   KOD    kod sobe (6 znakova)
 //   broj   koliko igrača dodati; zadano onoliko koliko soba još ima praznih mjesta
 //
-// Tokeni dodanih igrača spremaju se u scripts/.bots/KOD.json, da ih scripts/bots.mjs može igrati.
+// Tokeni dodanih igrača spremaju se u scripts/.bots/KOD.json, da ih scripts/bots.mjs može igrati
+// (noćni potezi i glasanje).
 // URL backenda se čita iz VITE_API_URL (iz .env ili iz okoline).
 import { apiUrl, json, loadBots, saveBots } from './api.mjs'
 

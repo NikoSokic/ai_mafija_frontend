@@ -1,10 +1,12 @@
-// DTO-i backenda (ai_mafija_backend, paketi dto/Requests, dto/Response i dto/WebSocket).
+// DTO-i backenda (ai_mafia_backend, paketi dto/Requests, dto/Response i dto/WebSocket).
 // Imena polja su ista kao u Javi. `| null` znači da backend to polje vraća prazno,
 // npr. faza i runda prije početka igre ili uloga prije dodjele.
+// Vremena (`phaseEndsAt`, `serverTime`…) su ISO tekst, npr. "2026-10-21T18:30:00.123+02:00".
 
 export type LobbyStatus = 'WAITING' | 'IN_PROGRESS' | 'FINISHED'
 
-export type GamePhase = 'NIGHT' | 'DAY' | 'TIE_BREAK' | 'FINISHED'
+/** DAY je samo rasprava; glasa se u VOTING i, kod izjednačenja, u TIE_BREAK */
+export type GamePhase = 'NIGHT' | 'DAY' | 'VOTING' | 'TIE_BREAK' | 'FINISHED'
 
 export type Winner = 'CITIZENS_WIN' | 'MAFIA_WIN'
 
@@ -15,6 +17,12 @@ export type InvestigationResult = 'MAFIA' | 'NOT_MAFIA'
 
 /** Novinar: jesu li dvije mete u istom timu */
 export type JournalistResult = 'ISTI_TIM' | 'RAZLICIT_TIM'
+
+/** Kako je igrač ispao: mafija noću, glasanjem ili je napustio igru */
+export type EliminatedHow = 'NIGHT' | 'VOTE' | 'LEFT'
+
+/** Ishod glasanja; kad glasanje odluči igru, umjesto ELIMINATED dolazi pobjednik */
+export type VoteResult = 'ELIMINATED' | 'TIE' | 'NO_ELIMINATION' | Winner
 
 // ---------- zahtjevi ----------
 
@@ -47,9 +55,16 @@ export interface ActionRequest {
   secondTargetPlayerId?: number | null
 }
 
+/** POST /api/votes – targetPlayerId null = "Suzdržan" (samo u VOTING) */
+export interface VoteRequest {
+  voterPlayerId: number
+  targetPlayerId: number | null
+  playerToken: string
+}
+
 // ---------- odgovori ----------
 
-/** GET /api/test/roles */
+/** GET /api/roles */
 export interface Role {
   id: number
   name: string
@@ -70,6 +85,19 @@ export interface LobbyPlayerResponse {
   id: number
   nickname: string
   alive: boolean
+  host: boolean
+  /** null dok je igrač živ */
+  eliminatedHow: EliminatedHow | null
+  eliminatedRound: number | null
+  /** uloga je javna tek kad igra završi */
+  roleName: string | null
+}
+
+/** Sastav uloga koji je domaćin odabrao */
+export interface LobbyRoleResponse {
+  roleId: number
+  roleName: string
+  count: number
 }
 
 export interface LobbyDetailsResponse {
@@ -80,6 +108,7 @@ export interface LobbyDetailsResponse {
   phase: GamePhase | null
   roundNumber: number | null
   players: LobbyPlayerResponse[]
+  roles: LobbyRoleResponse[]
 }
 
 export interface JoinLobbyResponse {
@@ -91,10 +120,26 @@ export interface JoinLobbyResponse {
   playerToken: string
 }
 
+/** Suigrač iz tima mafije – vidi ga samo tim mafije */
+export interface TeammateResponse {
+  playerId: number
+  nickname: string
+  roleName: string
+  alive: boolean
+}
+
+/** Koga je član tima mafije noćas odabrao za KILL */
+export interface TeamTargetResponse {
+  playerId: number
+  targetPlayerId: number
+}
+
 export interface PlayerRoleResponse {
   playerId: number
   nickname: string
   roleName: string
+  /** prazno za građane */
+  teammates: TeammateResponse[]
 }
 
 export interface AvailableActionResponse {
@@ -103,7 +148,7 @@ export interface AvailableActionResponse {
   requiresSecondTarget: boolean
 }
 
-/** Obrada noći: automatski nakon zadnje uloge ili POST /api/actions/resolve-night/{code} */
+/** Obrada noći: automatski nakon zadnje uloge, istekom roka ili POST /api/actions/resolve-night/{code} */
 export interface ResolveNightResponse {
   message: string
   phase: GamePhase
@@ -126,6 +171,34 @@ export interface ActionResponse {
   resolveResult: ResolveNightResponse | null
 }
 
+export interface VoteCountResponse {
+  playerId: number
+  votes: number
+}
+
+/** Obrada glasanja: kad svi glasaju, istekom roka ili POST /api/votes/resolve/{code} */
+export interface ResolveVoteResponse {
+  result: VoteResult
+  message: string
+  roundNumber: number
+  eliminatedPlayerId: number | null
+  tiedPlayerIds: number[]
+  voteCounts: VoteCountResponse[]
+  /** suzdržani + oni koji nisu glasali; null u ponovnom glasanju (TIE_BREAK) */
+  abstainCount: number | null
+}
+
+/** POST /api/votes */
+export interface VoteResponse {
+  voteId: number
+  voterPlayerId: number
+  targetPlayerId: number | null
+  message: string
+  /** true kad je ovaj glas bio zadnji i backend je odmah obradio glasanje */
+  votingResolved: boolean
+  resolveResult: ResolveVoteResponse | null
+}
+
 export interface ReconnectResponse {
   valid: boolean
   playerId: number
@@ -138,6 +211,7 @@ export interface ReconnectResponse {
   roleName: string | null
   phase: GamePhase | null
   roundNumber: number | null
+  /** null osim kad je igrač na redu */
   currentTurnRole: string | null
   canAct: boolean
   hasActed: boolean
@@ -152,13 +226,37 @@ export interface CurrentPlayerGameStateResponse {
   canAct: boolean
   hasActed: boolean
   availableActions: AvailableActionResponse[]
+  /** rok poteza; samo dok je igrač na redu */
+  actionEndsAt: string | null
+  /** samo za tim mafije */
+  teammates: TeammateResponse[]
+  /** samo za tim mafije tijekom noći */
+  teamTargets: TeamTargetResponse[]
+}
+
+/** Jedan glas; targetPlayerId je null za "Suzdržan" */
+export interface VoteEntryResponse {
+  voterPlayerId: number
+  targetPlayerId: number | null
 }
 
 export interface VotingStateResponse {
   votingOpen: boolean
   canVote: boolean
   hasVoted: boolean
+  /** "Suzdržan" samo u prvom glasanju */
+  canAbstain: boolean
+  /** za koga ovaj igrač smije glasati (bez sebe) */
   eligibleTargetPlayerIds: number[]
+  tiedPlayerIds: number[]
+  eligibleVoterIds: number[]
+  votes: VoteEntryResponse[]
+}
+
+/** Javno glasanje uživo; postoji samo dok je glasanje otvoreno */
+export interface PublicVotingResponse {
+  eligibleVoterIds: number[]
+  votes: VoteEntryResponse[]
   tiedPlayerIds: number[]
 }
 
@@ -173,6 +271,14 @@ export interface GameStateResponse {
   gameFinished: boolean
   winner: Winner | null
   voting: VotingStateResponse
+  /** kraj rasprave / glasanja; noću null */
+  phaseEndsAt: string | null
+  /** vrijeme poslužitelja, za razliku u satu */
+  serverTime: string
+  /** utišani u tekućem danu */
+  silencedPlayerIds: number[]
+  /** tko je stradao u noći prije tekućeg dana */
+  nightKilledPlayerIds: number[]
 }
 
 /** Javno stanje igre – stiže u `data` događaja GAME_STATE_CHANGED i GAME_FINISHED */
@@ -186,12 +292,27 @@ export interface PublicGameStateResponse {
   winner: Winner | null
   votingOpen: boolean
   tiedPlayerIds: number[]
+  phaseEndsAt: string | null
+  serverTime: string
+  silencedPlayerIds: number[]
+  nightKilledPlayerIds: number[]
+  /** null dok glasanje nije otvoreno */
+  voting: PublicVotingResponse | null
 }
 
+export interface PlayerLeftResponse {
+  playerId: number
+  nickname: string
+  /** samo ako je otišao domaćin */
+  newHostPlayerId: number | null
+}
+
+/** `code` je stabilan (backend exception/ErrorCode.java), `message` je tekst za ljude */
 export interface ApiErrorResponse {
   timestamp: string
   status: number
   error: string
+  code: string
   message: string
   path: string
 }
@@ -207,6 +328,10 @@ type LobbyEventOf<T extends string, D> = {
 
 export type LobbyEvent =
   | LobbyEventOf<'PLAYER_JOINED', LobbyPlayerResponse>
+  | LobbyEventOf<'PLAYER_LEFT', PlayerLeftResponse>
   | LobbyEventOf<'GAME_STARTED', null>
   | LobbyEventOf<'GAME_STATE_CHANGED', PublicGameStateResponse>
+  | LobbyEventOf<'NIGHT_RESOLVED', ResolveNightResponse>
+  | LobbyEventOf<'VOTING_STARTED', { roundNumber: number; phaseEndsAt: string }>
+  | LobbyEventOf<'VOTE_RESOLVED', ResolveVoteResponse>
   | LobbyEventOf<'GAME_FINISHED', PublicGameStateResponse>

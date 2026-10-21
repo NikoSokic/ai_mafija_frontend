@@ -7,7 +7,7 @@ const FLOW = [
   'Noć: uloge se bude jedna po jedna i tajno biraju metu.',
   'Jutro: narator otkriva tko je stradao i tko je utišan.',
   'Dan: svi raspravljaju i traže mafiju.',
-  'Glasanje: igrač s najviše glasova ispada. Utišani ne glasaju. Kod izjednačenja glasa se ponovno samo između izjednačenih.',
+  'Glasanje: igrač s najviše glasova ispada ako ima više glasova nego što je suzdržanih. Utišani ne glasaju. Kod izjednačenja glasa se ponovno samo između izjednačenih.',
 ]
 
 type RulesSheetProps = { open: boolean; onClose: () => void }

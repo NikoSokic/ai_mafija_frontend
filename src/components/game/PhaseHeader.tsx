@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ROLES, type RoleKey } from '../../data/roles.ts'
 import { loadNotes, type NightNote } from '../../store/notes.ts'
 import IconButton from '../IconButton.tsx'
@@ -14,11 +14,13 @@ type PhaseHeaderProps = {
   role: RoleKey | null
   /** kod sobe – za bilješke s rezultatima noći */
   code: string
+  /** desno od naslova, npr. chip "Dan 2" na glasanju */
+  aside?: ReactNode
 }
 
 // Zaglavlje faze: ikona + naslov, a oko pokaže toast s vlastitom ulogom
 // i rezultatima istraga / usporedbi iz prošlih noći (do kraja igre)
-export default function PhaseHeader({ icon, title, role, code }: PhaseHeaderProps) {
+export default function PhaseHeader({ icon, title, role, code, aside }: PhaseHeaderProps) {
   const [peek, setPeek] = useState(false)
   const [notes, setNotes] = useState<NightNote[]>([])
   const info = role ? ROLES[role] : null
@@ -32,6 +34,7 @@ export default function PhaseHeader({ icon, title, role, code }: PhaseHeaderProp
           </span>
           {title}
         </div>
+        {aside}
         {role && (
           <IconButton
             icon="eye"

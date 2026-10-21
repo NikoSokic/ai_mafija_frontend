@@ -1,7 +1,7 @@
 # Što frontend treba od backenda
 
-Popis stvari koje sučelje već prikazuje ili koristi, a backend (`ai_mafija_backend`) ih još nema.
-Brojevi u zagradama upućuju na `docs/design/spec.md`, poglavlje 10.
+Popis stvari koje sučelje već prikazuje ili koristi, a backend (`ai_mafia_backend`) ih još nema.
+Brojevi u zagradama upućuju na `docs/design/spec.md`, poglavlje 10. Pravila igre su u `docs/pravila-igre.md`.
 
 ## Postavke sobe i javne sobe (10.3)
 Nova soba nudi tri postavke koje se ne šalju backendu:
@@ -10,7 +10,7 @@ Nova soba nudi tri postavke koje se ne šalju backendu:
 - **Tko može ući**: `isPublic: boolean` ("Samo s kodom" / "Svi (javna)")
 - **Glas naratora**: `voiceEnabled: boolean`
 
-Zasad ih domaćinov preglednik sprema lokalno (`aimafija.room`) i lobby iz toga prikazuje chipove Privatna/Javna, Uživo/Online, Narator s glasom/bez glasa. Ostali igrači vide zadane vrijednosti (privatna, uživo, s glasom), koje ne moraju biti točne.
+Zasad ih domaćinov preglednik sprema lokalno (`aimafija.room`) i lobby iz toga prikazuje chipove Privatna/Javna, Uživo/Online, Narator s glasom/bez glasa. Ostali igrači vide zadane vrijednosti (privatna, uživo, s glasom), koje ne moraju biti točne. Zato i karta uloge gostima uvijek radi u načinu Uživo.
 
 Treba:
 - polja u `Lobby` i `CreateLobbyRequest`, te u odgovoru `GET /api/lobbies/{code}`
@@ -21,73 +21,51 @@ Igrač bira emoji na Početnoj; sprema se samo lokalno (`aimafija.profile`). `Pl
 
 Zasad u lobbyju igrač vidi svoj odabrani emoji, a tuđi avatar dobiva emoji izračunat iz id-a (`src/lib/playerLook.ts`). Zato isti igrač na različitim uređajima može imati različit emoji.
 
-## Uloge (10.7)
-Nova soba uloge čita s `GET /api/test/roles`. Treba javni `GET /api/roles` (isti oblik: `[{id, name, opis}]`).
-
-## Sastav uloga u sobi
-`GET /api/lobbies/{code}` (`LobbyDetailsResponse`) ne vraća koje su uloge odabrane. Lobby ih prikazuje samo domaćinu (iz `aimafija.room`), a ostali vide "Domaćin je odabrao uloge za N igrača."
-
-Treba: `roles: [{roleId, roleName, count}]` u `LobbyDetailsResponse`.
-
-## Tko je domaćin
-`LobbyPlayerResponse` nema oznaku domaćina, a `LobbyDetailsResponse` nema `hostPlayerId`. Igrač za sebe to saznaje iz `POST /api/players/reconnect` (`host`). Za krunu kod drugih frontend pretpostavlja da je domaćin igrač s najmanjim `id`, jer se domaćin u bazu sprema prvi.
-
-Treba: `host: boolean` u `LobbyPlayerResponse` ili `hostPlayerId` u `LobbyDetailsResponse`.
-
-## Kodovi grešaka
-`ApiErrorResponse` ima samo slobodan tekst (`message`). Frontend poruke prevodi za igrače usporedbom točnog teksta (`"Lobby je popunjen."`, `"Igrač s tim nicknameom već postoji u lobbyju."`…, vidi `describeError` u `src/api/rest.ts`). Svaka promjena teksta na backendu pokvari prijevod.
-
-Treba: stabilno polje `code`, npr. `LOBBY_NOT_FOUND`, `LOBBY_FULL`, `NICKNAME_TAKEN`, `GAME_ALREADY_STARTED`, `LOBBY_NOT_FULL`.
-
-## Napuštanje sobe
-Nema endpointa za izlazak iz sobe. "Napusti sobu" (strelica u lobbyju i kartica "Nastavi igru" na Početnoj) nakon potvrde briše samo lokalnu sesiju (`aimafija.session`). Na backendu igrač ostaje u sobi: drugi ga i dalje vide u popisu, zauzima mjesto (soba se može "napuniti" igračima kojih nema), a njegov nadimak ostaje zauzet pa se s istim nadimkom ne može vratiti. Isto vrijedi i za domaćina, pa soba ostaje bez nekoga tko je može pokrenuti.
-
-Treba: npr. `POST /api/lobbies/{code}/leave {playerId, playerToken}` i WebSocket događaj `PLAYER_LEFT` (lobby bi tada maknuo igrača iz popisa i ugasio njegov prozor). Za domaćina treba odlučiti: predati ulogu domaćina sljedećem igraču ili zatvoriti sobu.
-
-## Duljina nadimka
-`CreateLobbyRequest.hostNickname` ima `@Size(max = 30)`, a `JoinLobbyRequest.nickname` nema ograničenje. Frontend ograničava nadimak na 16 znakova. Treba isto pravilo na oba mjesta.
-
-## Suigrači mafije na karti uloge (6.5, 10.6)
-`PlayerRoleResponse` (`POST /api/players/role`) i `currentPlayer` u `game-state` vraćaju samo ime uloge. Karta uloge za tim mafije zato ne prikazuje suigrače, a oni su bitni jer se Mafija i Dama moraju prepoznati.
-
-Treba: `teammates: [{playerId, nickname, roleName}]` u odgovoru za igrače tima mafije (prazno za građane).
-
 ## "Spreman sam" nakon otkrivanja uloge (6.5, 10.13)
-Backend ne zna je li igrač vidio ulogu: igra odmah ide u fazu `NIGHT`. Gumb "Spreman sam" zato samo lokalno pamti da je igrač vidio ulogu (`aimafija.seenRole.{code}`) i otvara noćni ekran. Nema brojača "Spremno 5 od 8", a noć može početi dok neki igrač još gleda svoju kartu.
+Backend sada prvu noć počinje pauzom od 30 s, pa igrači stignu pogledati kartu. Ali ne zna je li tko stvarno vidio ulogu, pa nema brojača "Spremno 5 od 8".
 
-Treba (ako se želi): `POST /api/lobbies/{code}/ready {playerId, playerToken}`, brojač spremnih u `game-state` / javnom stanju i događaj `PLAYER_READY`. Faza `NIGHT` (ili naracija "Početak igre") bi tada počela tek kad su svi spremni.
-
-## Način igre za ostale igrače
-Karta uloge ovisi o načinu: Uživo (uloga se vidi dok držiš prst) ili Online (dodir okreće). Gost način ne zna (vidi "Postavke sobe i javne sobe"), pa dobiva zadano Uživo. Isto je kad domaćin otvori sobu u drugom pregledniku.
+Treba (ako se želi): `POST /api/lobbies/{code}/ready {playerId, playerToken}`, brojač spremnih u javnom stanju i događaj `PLAYER_READY`.
 
 ## Noćni red (6.6, 10.1)
-`GAME_STATE_CHANGED` stiže nakon svake noćne akcije, ali javno stanje nema `currentTurnRole`. Zato svaki klijent nakon svake akcije ponovno dohvaća `GET /game-state` da sazna je li sad na redu (`canAct`). Radi, ali s 8 igrača to je 8 zahtjeva po potezu.
+Backend šalje `GAME_STATE_CHANGED` pri svakom prijelazu poteza, ali javno stanje (namjerno) ne kaže tko je na redu. Svaki klijent zato nakon svakog događaja ponovno dohvaća `GET /game-state` da sazna `canAct`. Radi, ali s 8 igrača to je 8 zahtjeva po potezu. Bolje bi bilo slati potez privatno samo igračima te uloge (npr. STOMP user destination), što traži autentikaciju na WebSocketu.
 
-Treba: događaj `NIGHT_TURN_CHANGED {roundNumber, currentTurnRole}` ili `currentTurnRole` u `PublicGameStateResponse`. Pazi na curenje informacija (10.12): klijent tada drugima i dalje prikazuje samo "Grad spava".
+## Igraj ponovno (6.9)
+Backend nema "nova igra s istim igračima". Na kraju igre domaćin zato dobiva "Nova soba s istim postavkama": otvori se `/nova` s uloge, brojem igrača i načinom iz `aimafija.room`, a ostali igrači moraju ući novim kodom.
 
-## Rezultati noći (6.7, 10.1)
-`killedPlayerIds` i `silencedPlayerIds` stižu samo u `ActionResponse.resolveResult`, dakle samo igraču čija je akcija zatvorila noć (ili domaćinu preko "Završi noć"). Ostali iz javnog stanja vide samo tko je mrtav, a ne tko je utišan.
+Treba: `POST /api/lobbies/{code}/rematch {playerId, playerToken}` (samo domaćin). Isti igrači se vraćaju u lobby sa statusom `WAITING` (uloge, `alive`, `eliminatedHow` i `eliminatedRound` se brišu), a svi klijenti dobiju događaj `REMATCH` i prijeđu na `/soba/{code}`.
 
-Kako frontend to sada zaobilazi:
-- **Izvještaj "Što se dogodilo noćas"** računa sam: usporedi žive igrače iz zadnjeg stanja noći i prvog stanja dana iste runde. Sprema ga lokalno (`aimafija.reports.{code}`). Na uređaju koji nije pratio kraj noći (npr. prijava na drugom mobitelu tijekom dana) piše "Nema izvještaja".
-- **Utišanost** zna samo utišani igrač: u fazi `DAY` je živ, `voting.votingOpen` je true, a `voting.canVote` i `voting.hasVoted` su false (`GameStateService.isSilencedDuringCurrentVoting`). On vidi banner "Utišan si", a ostali u izvještaju i popisu igrača ne vide oznaku utišanog.
+## AI narator (10.9)
+U backendu još nema AI integracije. Prijedlog: servis koji iz događaja (`NIGHT_RESOLVED`, `VOTE_RESOLVED`…) generira kratki tekst i šalje ga kao `NARRATION`; TTS ostaje na klijentu.
 
-Treba: događaj `NIGHT_RESOLVED {roundNumber, killedPlayerIds, silencedPlayerIds, phase}` ili ta polja u javnom stanju (`PublicGameStateResponse` / `game-state`) za tekući dan.
+## Autorizacija i sigurnost (10.8, 10.15)
+- `GET /api/lobbies/{code}` i javno stanje su dostupni svakome tko zna kod (samo javni podaci).
+- Lozinka baze se čita iz `SPRING_DATASOURCE_PASSWORD`; provjeri da stara lozinka više nije u povijesti repoa ili je promijeni u Supabaseu.
 
-## Pokretanje glasanja (6.7, 10.13)
-Backend otvara glasanje odmah na početku dana (`votingOpen` je true čim je faza `DAY`). Zato:
-- "Pokreni glasanje" (i "Preskoči" uz timer) kod domaćina samo na njegovu ekranu prebacuje raspravu na glasanje.
-- Ostali vide "Glasanje počinje kad domaćin odluči ili istekne vrijeme." i gumb "Glasaj" kad im istekne timer.
-- Timer rasprave (2:30) je lokalan: svaki uređaj broji od trenutka kad je vidio dan, "+30 s" produži samo domaćinov timer, a osvježavanje stranice ga vraća na početak.
+---
 
-Treba: `POST /api/lobbies/{code}/start-voting {playerId, playerToken}` (samo domaćin) i događaj `VOTING_STARTED {roundNumber}` da glasanje počne svima istovremeno. `votingOpen` bi do tada trebao biti false. Opcionalno: timer rasprave na serveru (npr. `discussionEndsAt` u javnom stanju), pa bi "+30 s" vrijedio za sve.
+# Riješeno u backendu (listopad 2026.)
 
-## Mafija noću (6.6, 10.1, 10.10)
-- **Suigrači:** `availableActions` ne kaže tko je u timu mafije, pa pločice suigrača nemaju oznaku "Tvoj tim" i mafija može odabrati svog. Treba `teammates` (vidi "Suigrači mafije na karti uloge") ili izbaciti suigrače iz `targetPlayerIds` za `KILL`.
-- **Odabir suigrača:** prototip na meti pokazuje koga je odabrao suigrač. Treba privatni kanal za tim mafije.
-- **Više mafijaša:** svaki mafijaš šalje svoj `KILL`, a backend uzme prvi. Zato objašnjenje u aplikaciji kaže "Ako vas je više, vrijedi odabir onoga tko prvi potvrdi." Kad backend uvede dogovor (svi isti odabir ili zadnji vrijedi), vratiti tekst iz prototipa: "Tvoj tim vidi tvoj odabir. Odluka postaje konačna kad svi iz mafije potvrde."
+Prije pokretanja nove verzije backenda pokreni `db/migrations/001_rokovi_suzdrzani_ispadanje.sql` u Supabase SQL editoru.
 
-## Kako je igrač ispao
-`game-state` ne kaže kako i kada je igrač ispao. Promatrač bi trebao vidjeti "Mafija te uklonila u noći 2" / "Grad te izbacio u danu 1". Frontend to zasad pamti sam (`aimafija.fate.{code}`) kad primijeti da je igrač umro, pa nakon prijave na drugom uređaju piše samo "Više nisi u igri".
+## Frontend već koristi
+- Faze `DAY` (samo rasprava), `VOTING` i `TIE_BREAK`. Timer rasprave i glasanja broji do `phaseEndsAt`, ispravljeno za razliku sata (`serverTime`), pa svi vide isto vrijeme.
+- Domaćin na danu: "+30 s" (`discussion/extend`), "Pokreni glasanje" i "Preskoči" (`voting/start`), na glasanju "Završi glasanje" (`POST /api/votes/resolve/{code}`).
+- Glasanje: `POST /api/votes` (i "Suzdržan" s `targetPlayerId: null`), glasovi uživo iz javnog `voting`, ishod iz događaja `VOTE_RESOLVED` (i iz odgovora REST-a).
+- Izvještaj noći i utišani iz `nightKilledPlayerIds` / `silencedPlayerIds`. Lokalni `aimafija.reports` više ne postoji.
+- `players[].host` za krunu i domaćinove gumbe, `eliminatedHow` / `eliminatedRound` za promatrača ("Mafija te uklonila u noći 2"). Lokalni `aimafija.fate` više ne postoji.
+- `ApiErrorResponse.code`: `describeError` u `src/api/rest.ts` prevodi po kodu.
+- `GET /api/roles` za ekran Nova soba.
+- `NIGHT_RESOLVED`, `VOTING_STARTED` i `PLAYER_LEFT` frontend preskače, jer odmah za njima stiže `GAME_STATE_CHANGED` s istim stanjem.
 
-Treba: npr. `eliminatedHow: "NIGHT" | "VOTE"` i `eliminatedRound` u `CurrentPlayerGameStateResponse` (i u `LobbyPlayerResponse` za kraj igre).
+## Frontend još treba prilagoditi
+### Mafija noću
+- `currentPlayer.teammates` i `teamTargets`: pločice suigrača bi trebale imati oznaku "Tvoj tim" (zasad "Nedostupno", jer ih `targetPlayerIds` za `KILL` više ne sadrži) i značku s metom koju je suigrač odabrao.
+- Mafijaši smiju ponovno poslati `KILL`, a ekran nakon potvrde prikazuje "Potez je poslan". Tekst u `src/components/game/nightConfig.ts` ("vrijedi odabir onoga tko prvi potvrdi") više nije točan; kad se uvede promjena mete, vratiti tekst iz prototipa: "Tvoj tim vidi tvoj odabir. Odluka postaje konačna kad svi iz mafije potvrde."
+- `teammates` u `POST /api/players/role` za kartu uloge.
+- Rok poteza `currentPlayer.actionEndsAt` (npr. odbrojavanje uz "Tvoj red").
+
+### Sastav uloga u lobbyju
+`GET /api/lobbies/{code}` vraća `roles`, ali gosti u lobbyju i dalje vide samo "Domaćin je odabrao uloge za N igrača."
+
+### Napuštanje sobe
+"Napusti sobu" još samo briše lokalnu sesiju. Treba pozvati `POST /api/lobbies/{code}/leave` i obraditi `PLAYER_LEFT` (u lobbyju maknuti igrača iz popisa, `newHostPlayerId` za novu krunu).

@@ -55,6 +55,10 @@
   --animate-lock-on: lock-on .5s cubic-bezier(.34, 1.56, .64, 1);
   --animate-result-in: result-in .7s cubic-bezier(.34, 1.56, .64, 1) both;
   --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+  --animate-drop-in: drop-in .55s cubic-bezier(.34, 1.56, .64, 1);
+  --animate-elim-av: elim-av 2s cubic-bezier(.2, .8, .2, 1) forwards;
+  --animate-crack: draw .35s forwards;
+  --animate-rise: rise .6s cubic-bezier(.2, .8, .2, 1) both;
 
   @keyframes ripple {
     from { transform: scale(0); }
@@ -112,6 +116,24 @@
   /* ikona u banneru (utišan si, promatraš igru) */
   @keyframes pulse-soft {
     50% { opacity: .45; }
+  }
+  /* novi glas: avatar glasača padne na karticu */
+  @keyframes drop-in {
+    from { transform: translateY(-26px) scale(.4); opacity: 0; }
+  }
+  /* izbačeni igrač: zatrese se, posivi i spusti */
+  @keyframes elim-av {
+    0% { transform: none; }
+    8% { transform: translateX(-6px) rotate(-3deg); }
+    16% { transform: translateX(6px) rotate(3deg); }
+    24% { transform: translateX(-4px); }
+    32% { transform: none; filter: none; }
+    60% { filter: grayscale(1) brightness(.8); }
+    100% { filter: grayscale(1) brightness(.6); transform: translateY(8px) scale(.94); opacity: .75; }
+  }
+  /* tekst overlaya izbacivanja ulazi odozdo, jedan redak za drugim */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
   }
 }
 

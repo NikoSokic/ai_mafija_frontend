@@ -9,11 +9,7 @@ export type NightNote =
   | { round: number; type: 'INVESTIGATE'; targets: [NoteTarget]; value: InvestigationResult }
   | { round: number; type: 'COMPARE'; targets: [NoteTarget, NoteTarget]; value: JournalistResult }
 
-/** Kako je igrač ispao; backend to ne vraća (docs/backend-todo.md), pa se zapamti kad se dogodi */
-export type Fate = { how: 'night' | 'day'; round: number }
-
 const notesKey = (code: string) => `aimafija.notes.${code}`
-const fateKey = (code: string) => `aimafija.fate.${code}`
 
 function read<T>(key: string): T | null {
   try {
@@ -41,10 +37,10 @@ export function addNote(code: string, note: NightNote) {
   write(notesKey(code), [...loadNotes(code), note])
 }
 
-export function loadFate(code: string): Fate | null {
-  return read<Fate>(fateKey(code))
-}
-
-export function saveFate(code: string, fate: Fate) {
-  write(fateKey(code), fate)
+export function clearNotes(code: string) {
+  try {
+    localStorage.removeItem(notesKey(code))
+  } catch {
+    // nema što obrisati
+  }
 }

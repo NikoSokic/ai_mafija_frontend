@@ -31,8 +31,8 @@ import { clearSession, loadSession, saveSession, type Session } from '../store/s
 
 const EASE_SPRING: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
 
-// Igrač na ovom uređaju. host = null kad provjera nije uspjela (nema veze) – tada se pogađa iz popisa.
-type Me = { session: Session; host: boolean | null }
+// Igrač na ovom uređaju; je li domaćin piše u popisu igrača (host)
+type Me = { session: Session }
 
 export default function LobbyPage() {
   const code = (useParams().code ?? '').toUpperCase()
@@ -75,7 +75,7 @@ function LobbyScreen({ code }: { code: string }) {
         <LobbyView
           lobby={lobby}
           me={me}
-          onJoined={(session) => setMe({ session, host: false })}
+          onJoined={(session) => setMe({ session })}
           onOpenRules={() => setRulesOpen(true)}
         />
       )}
@@ -100,7 +100,7 @@ function useMe(code: string) {
       .then((res) => {
         if (!active) return
         if (res.valid && res.lobbyCode === code) {
-          setMe({ session, host: res.host })
+          setMe({ session })
         } else {
           clearSession()
           setMe(null)
@@ -113,7 +113,7 @@ function useMe(code: string) {
           clearSession()
           setMe(null)
         } else {
-          setMe({ session, host: null })
+          setMe({ session })
         }
       })
     return () => {
@@ -159,9 +159,8 @@ function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
 
   const { code, players, maxPlayers } = lobby
   const meId = me?.session.playerId
-  // Backend ne kaže tko je domaćin; domaćin se sprema prvi, pa ima najmanji id (prvi u popisu)
-  const amHost = me ? (me.host ?? meId === players[0]?.id) : false
-  const hostId = amHost ? meId : players[0]?.id
+  const hostId = players.find((p) => p.host)?.id
+  const amHost = meId !== undefined && meId === hostId
   const missing = Math.max(0, maxPlayers - players.length)
   const slots = Array.from({ length: maxPlayers }, (_, i) => ({ id: i }))
 
@@ -400,7 +399,15 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
       saveSession(session)
       saveProfile({ nickname: nick, emoji: loadProfile()?.emoji || DEFAULT_EMOJI })
       // odmah u popis; PLAYER_JOINED za istog igrača samo ga zamijeni
-      useGameStore.getState().playerJoined({ id: res.playerId, nickname: res.nickname, alive: res.alive })
+      useGameStore.getState().playerJoined({
+        id: res.playerId,
+        nickname: res.nickname,
+        alive: res.alive,
+        host: false,
+        eliminatedHow: null,
+        eliminatedRound: null,
+        roleName: null,
+      })
       onJoined(session)
     } catch (e) {
       setError(describeError(e, lobby.code))

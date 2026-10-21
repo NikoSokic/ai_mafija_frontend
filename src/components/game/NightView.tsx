@@ -6,7 +6,7 @@ import { DEFAULT_EMOJI } from '../../data/emojis.ts'
 import { ROLES, type RoleKey } from '../../data/roles.ts'
 import { riseItem, riseList } from '../../lib/motion.ts'
 import { playerEmoji, playerHue } from '../../lib/playerLook.ts'
-import { addNote, loadFate, type Fate, type NightNote, type NoteTarget } from '../../store/notes.ts'
+import { addNote, type NightNote, type NoteTarget } from '../../store/notes.ts'
 import { loadProfile } from '../../store/profile.ts'
 import type { Mode } from '../../store/roomSettings.ts'
 import type { Session } from '../../store/session.ts'
@@ -18,7 +18,7 @@ import { Screen, ScreenBody, ScreenFooter } from '../Screen.tsx'
 import Skyline from '../Skyline.tsx'
 import Toast from '../Toast.tsx'
 import TurnBadge from '../TurnBadge.tsx'
-import EndNightSheet from './EndNightSheet.tsx'
+import HostConfirmSheet from './HostConfirmSheet.tsx'
 import NightResult from './NightResult.tsx'
 import { nightText } from './nightConfig.ts'
 import PhaseHeader from './PhaseHeader.tsx'
@@ -166,7 +166,7 @@ export default function NightView({
       </Button>
     )
   } else if (view === 'observer') {
-    main = <Observer fate={loadFate(code)} />
+    main = <Observer fate={fateText(players.find((p) => p.id === me.playerId))} />
   } else if (view === 'sent') {
     main = <Sent />
   } else if (view === 'action' && action) {
@@ -248,7 +248,16 @@ export default function NightView({
           </Button>
         )}
       </ScreenFooter>
-      <EndNightSheet open={endOpen} sending={ending} onClose={() => setEndOpen(false)} onConfirm={endNight} />
+      <HostConfirmSheet
+        open={endOpen}
+        title="Završiti noć?"
+        subtitle="Uloge koje još nisu odigrale preskaču potez. Koristi ovo samo ako je noć zapela."
+        confirmLabel="Završi noć"
+        sendingLabel="Završavam noć…"
+        sending={ending}
+        onClose={() => setEndOpen(false)}
+        onConfirm={endNight}
+      />
       <Toast
         open={error.open}
         onClose={() => setError((e) => ({ ...e, open: false }))}
@@ -276,7 +285,7 @@ function noteFrom(response: ActionResponse, round: number, targets: NoteTarget[]
   return null
 }
 
-function Observer({ fate }: { fate: Fate | null }) {
+function Observer({ fate }: { fate: string }) {
   return (
     <div className="flex flex-col items-center px-2.5 pt-[34px] text-center">
       <motion.div
@@ -289,7 +298,7 @@ function Observer({ fate }: { fate: Fate | null }) {
         Promatraš igru
       </motion.h3>
       <motion.p variants={riseItem} className="max-w-[30ch] text-base leading-[1.5] text-muted">
-        {fateText(fate)}. Ne govori i ne otkrivaj uloge dok igra ne završi.
+        {fate}. Ne govori i ne otkrivaj uloge dok igra ne završi.
       </motion.p>
     </div>
   )
