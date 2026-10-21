@@ -22,6 +22,7 @@ import EndNightSheet from './EndNightSheet.tsx'
 import NightResult from './NightResult.tsx'
 import { nightText } from './nightConfig.ts'
 import PhaseHeader from './PhaseHeader.tsx'
+import { fateText } from './playerStatus.ts'
 
 type NightViewProps = {
   code: string
@@ -273,12 +274,6 @@ function noteFrom(response: ActionResponse, round: number, targets: NoteTarget[]
     return { round, type: 'COMPARE', targets: [targets[0], targets[1]], value: response.journalistResult }
   }
   return null
-}
-
-// Neutralno, jer backend ne zna rod igrača (spec 9)
-function fateText(fate: Fate | null) {
-  if (!fate) return 'Više nisi u igri'
-  return fate.how === 'night' ? `Mafija te uklonila u noći ${fate.round}` : `Grad te izbacio u danu ${fate.round}`
 }
 
 function Observer({ fate }: { fate: Fate | null }) {

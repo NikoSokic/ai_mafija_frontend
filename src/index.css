@@ -54,6 +54,7 @@
   --animate-draw: draw .5s .15s cubic-bezier(.2, .8, .2, 1) forwards;
   --animate-lock-on: lock-on .5s cubic-bezier(.34, 1.56, .64, 1);
   --animate-result-in: result-in .7s cubic-bezier(.34, 1.56, .64, 1) both;
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
 
   @keyframes ripple {
     from { transform: scale(0); }
@@ -107,6 +108,10 @@
   /* kartica rezultata istrage / usporedbe ulazi s nagibom */
   @keyframes result-in {
     from { opacity: 0; transform: scale(.85) rotateX(40deg); }
+  }
+  /* ikona u banneru (utišan si, promatraš igru) */
+  @keyframes pulse-soft {
+    50% { opacity: .45; }
   }
 }
 

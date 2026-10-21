@@ -68,7 +68,19 @@ Treba: događaj `NIGHT_TURN_CHANGED {roundNumber, currentTurnRole}` ili `current
 ## Rezultati noći (6.7, 10.1)
 `killedPlayerIds` i `silencedPlayerIds` stižu samo u `ActionResponse.resolveResult`, dakle samo igraču čija je akcija zatvorila noć (ili domaćinu preko "Završi noć"). Ostali iz javnog stanja vide samo tko je mrtav, a ne tko je utišan.
 
-Treba: događaj `NIGHT_RESOLVED {roundNumber, killedPlayerIds, silencedPlayerIds, phase}` ili ta polja u javnom stanju za zadnju noć.
+Kako frontend to sada zaobilazi:
+- **Izvještaj "Što se dogodilo noćas"** računa sam: usporedi žive igrače iz zadnjeg stanja noći i prvog stanja dana iste runde. Sprema ga lokalno (`aimafija.reports.{code}`). Na uređaju koji nije pratio kraj noći (npr. prijava na drugom mobitelu tijekom dana) piše "Nema izvještaja".
+- **Utišanost** zna samo utišani igrač: u fazi `DAY` je živ, `voting.votingOpen` je true, a `voting.canVote` i `voting.hasVoted` su false (`GameStateService.isSilencedDuringCurrentVoting`). On vidi banner "Utišan si", a ostali u izvještaju i popisu igrača ne vide oznaku utišanog.
+
+Treba: događaj `NIGHT_RESOLVED {roundNumber, killedPlayerIds, silencedPlayerIds, phase}` ili ta polja u javnom stanju (`PublicGameStateResponse` / `game-state`) za tekući dan.
+
+## Pokretanje glasanja (6.7, 10.13)
+Backend otvara glasanje odmah na početku dana (`votingOpen` je true čim je faza `DAY`). Zato:
+- "Pokreni glasanje" (i "Preskoči" uz timer) kod domaćina samo na njegovu ekranu prebacuje raspravu na glasanje.
+- Ostali vide "Glasanje počinje kad domaćin odluči ili istekne vrijeme." i gumb "Glasaj" kad im istekne timer.
+- Timer rasprave (2:30) je lokalan: svaki uređaj broji od trenutka kad je vidio dan, "+30 s" produži samo domaćinov timer, a osvježavanje stranice ga vraća na početak.
+
+Treba: `POST /api/lobbies/{code}/start-voting {playerId, playerToken}` (samo domaćin) i događaj `VOTING_STARTED {roundNumber}` da glasanje počne svima istovremeno. `votingOpen` bi do tada trebao biti false. Opcionalno: timer rasprave na serveru (npr. `discussionEndsAt` u javnom stanju), pa bi "+30 s" vrijedio za sve.
 
 ## Mafija noću (6.6, 10.1, 10.10)
 - **Suigrači:** `availableActions` ne kaže tko je u timu mafije, pa pločice suigrača nemaju oznaku "Tvoj tim" i mafija može odabrati svog. Treba `teammates` (vidi "Suigrači mafije na karti uloge") ili izbaciti suigrače iz `targetPlayerIds` za `KILL`.

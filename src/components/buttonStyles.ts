@@ -1,7 +1,7 @@
 import { cx } from '../lib/cx.ts'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost'
-export type ButtonSize = 'lg' | 'sm'
+export type ButtonSize = 'lg' | 'sm' | 'xs'
 
 // .btn iz prototipa. Tailwind v4 scale-* koristi CSS svojstvo `scale`, pa se ono i animira.
 const base = [
@@ -21,6 +21,8 @@ const sizes: Record<ButtonSize, string> = {
   lg: 'h-14 w-full rounded-ctrl text-[17px]',
   // .btn-sm – npr. "Uđi" / "Puna" na kartici javne sobe
   sm: 'h-10 w-auto rounded-xl px-4 text-[15px]',
+  // "+30 s" i "Preskoči" uz timer rasprave
+  xs: 'h-[34px] w-auto rounded-[10px] px-3 text-[13px]',
 }
 
 export function buttonClasses(variant: ButtonVariant, size: ButtonSize = 'lg') {

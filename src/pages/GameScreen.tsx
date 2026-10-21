@@ -2,7 +2,7 @@ import { useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { ApiError, describeError, getGameState, reconnect } from '../api/rest.ts'
-import type { GamePhase, LobbyStatus, Winner } from '../api/types.ts'
+import type { GamePhase, LobbyPlayerResponse, LobbyStatus, Winner } from '../api/types.ts'
 import Button from '../components/Button.tsx'
 import ConnectionToast from '../components/ConnectionToast.tsx'
 import DayView from '../components/game/DayView.tsx'
@@ -10,17 +10,19 @@ import EndView from '../components/game/EndView.tsx'
 import NightView from '../components/game/NightView.tsx'
 import PhaseTransition from '../components/game/PhaseTransition.tsx'
 import RoleReveal from '../components/game/RoleReveal.tsx'
+import VoteView from '../components/game/VoteView.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import { ROLES, type RoleKey } from '../data/roles.ts'
 import type { Theme } from '../lib/theme.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore } from '../store/gameStore.ts'
 import { saveFate } from '../store/notes.ts'
+import { loadReports, saveReports } from '../store/reports.ts'
 import { DEFAULT_ROOM_SETTINGS, loadRoomSettings } from '../store/roomSettings.ts'
 import { hasSeenRole, markRoleSeen } from '../store/seenRole.ts'
 import { clearSession, loadSession, type Session } from '../store/session.ts'
 
-type View = 'role' | 'night' | 'day' | 'end'
+type View = 'role' | 'night' | 'day' | 'vote' | 'end'
 
 // Što ekran prikazuje; iz toga se računaju tema i naslovi
 type Shown = { view: View; round: number; tieBreak: boolean; winner: Winner | null }
@@ -31,6 +33,7 @@ type Snapshot = {
   phase: GamePhase | null
   round: number
   winner: Winner | null
+  players: LobbyPlayerResponse[]
 }
 
 export default function GameScreenPage() {
@@ -44,8 +47,13 @@ export default function GameScreenPage() {
   return <GameScreen key={code} code={code} session={session} />
 }
 
+// Dan i glasanje imaju isto nebo, pa između njih nema prijelaza
+const daylight = (view: View) => view === 'day' || view === 'vote'
+
 const themeOf = (s: Shown): Theme =>
-  s.view === 'day' || (s.view === 'end' && s.winner === 'CITIZENS_WIN') ? 'day' : 'night'
+  daylight(s.view) || (s.view === 'end' && s.winner === 'CITIZENS_WIN') ? 'day' : 'night'
+
+const aliveIds = (players: LobbyPlayerResponse[]) => players.filter((p) => p.alive).map((p) => p.id)
 
 const sameShown = (a: Shown, b: Shown) =>
   a.view === b.view && a.round === b.round && a.tieBreak === b.tieBreak && a.winner === b.winner
@@ -68,6 +76,8 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const [holdNight, setHoldNight] = useState(false)
   // null dok se ne zna (provjera nije gotova ili nije uspjela)
   const [hostFlag, setHostFlag] = useState<boolean | null>(null)
+  // runda u kojoj je igrač na ovom uređaju prešao s rasprave na glasanje
+  const [voteRound, setVoteRound] = useState<number | null>(null)
   const requestId = useRef(0)
 
   // Tko je domaćin zna samo reconnect (docs/backend-todo.md)
@@ -103,6 +113,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
           phase: state.phase,
           round: state.roundNumber ?? 1,
           winner: state.winner,
+          players: state.players,
         })
         setLoadError(null)
       })
@@ -131,12 +142,37 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
         phase: publicState.phase,
         round: publicState.roundNumber ?? 1,
         winner: publicState.winner,
+        players: publicState.players,
       })
     }
   }
   useEffect(() => {
     if (publicState && publicState.lobbyCode === code) refresh()
   }, [publicState, code, refresh])
+
+  // Izvještaj noći (spec 6.7): backend ne kaže tko je stradao, pa se usporede živi igrači
+  // noću i u prvom stanju dana iste runde. Računa se jednom po rundi i sprema, da preživi F5.
+  const [nightAlive, setNightAlive] = useState<{ round: number; ids: number[] } | null>(null)
+  const [reports, setReports] = useState(() => loadReports(code))
+  const [prevSnap, setPrevSnap] = useState(snap)
+  if (snap !== prevSnap) {
+    setPrevSnap(snap)
+    if (snap?.phase === 'NIGHT') {
+      setNightAlive({ round: snap.round, ids: aliveIds(snap.players) })
+    } else if (snap?.phase === 'DAY' && !reports[snap.round] && nightAlive?.round === snap.round) {
+      const alive = new Set(aliveIds(snap.players))
+      setReports({ ...reports, [snap.round]: { killed: nightAlive.ids.filter((id) => !alive.has(id)) } })
+    }
+  }
+  useEffect(() => {
+    if (Object.keys(reports).length) saveReports(code, reports)
+  }, [code, reports])
+
+  // Mjesto za naratora (spec 7): kad se pojavi novi dan, ovdje će se otvoriti NarratorSheet
+  // s jutarnjim vijestima iz izvještaja noći. Timer rasprave tada treba stajati dok traje naracija.
+  const onPhaseIntro = useCallback(() => {
+    // narator još ne postoji
+  }, [])
 
   const roleName = gameState?.currentPlayer.role ?? null
   const role: RoleKey | null = roleName && roleName in ROLES ? (roleName as RoleKey) : null
@@ -146,9 +182,11 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     const { phase, round, winner } = snap
     if (phase === 'FINISHED') return { view: 'end', round, tieBreak: false, winner }
     if (!seen) return { view: 'role', round, tieBreak: false, winner: null }
-    const view = phase === 'NIGHT' ? 'night' : 'day'
-    return { view, round, tieBreak: phase === 'TIE_BREAK', winner: null }
-  }, [snap, seen])
+    if (phase === 'NIGHT') return { view: 'night', round, tieBreak: false, winner: null }
+    // izjednačenje nema raspravu, odmah se glasa ponovno (spec 6.8)
+    if (phase === 'TIE_BREAK') return { view: 'vote', round, tieBreak: true, winner: null }
+    return { view: voteRound === round ? 'vote' : 'day', round, tieBreak: false, winner: null }
+  }, [snap, seen, voteRound])
 
   // Callbackovi prijelaza uvijek vide najnoviju metu, ne onu s početka prijelaza
   const targetRef = useRef(target)
@@ -157,14 +195,19 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   })
 
   // Što je na ekranu mijenja se tek kad nije u tijeku prijelaz i noć ne čeka igrača. Promjena
-  // noć ↔ dan (i ulaz u noć nakon uloge) ide kroz PhaseTransition, sve ostalo odmah.
+  // noć ↔ dan (i ulaz u noć nakon uloge) ide kroz PhaseTransition, sve ostalo (npr. dan →
+  // glasanje) odmah.
   const waitForNight = holdNight && shown?.view === 'night'
   if (target && !transition && !waitForNight && (!shown || !sameShown(shown, target))) {
-    const changesSky = shown && shown.view !== target.view && target.view !== 'end'
+    const changesSky =
+      shown &&
+      target.view !== 'end' &&
+      shown.view !== target.view &&
+      !(daylight(shown.view) && daylight(target.view))
     if (!changesSky || reduceMotion) {
       setShown(target)
     } else {
-      const kind = target.view === 'day' ? 'day' : 'night'
+      const kind = daylight(target.view) ? 'day' : 'night'
       setTransition({ kind, title: `${kind === 'day' ? 'Dan' : 'Noć'} ${target.round}` })
     }
   }
@@ -182,6 +225,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   // Kao u lobbyju: bez odgovora reconnecta domaćin je igrač s najmanjim id-om (sprema se prvi)
   const firstId = gameState?.players.length ? Math.min(...gameState.players.map((p) => p.id)) : null
   const isHost = hostFlag ?? firstId === session.playerId
+  const hostId = isHost ? session.playerId : firstId
 
   let content = null
   if (shown?.view === 'role') {
@@ -205,7 +249,25 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
       )
     }
   } else if (shown?.view === 'day') {
-    content = <DayView code={code} round={shown.round} tieBreak={shown.tieBreak} role={role} />
+    if (gameState) {
+      content = (
+        <DayView
+          key={shown.round}
+          code={code}
+          round={shown.round}
+          role={role}
+          mode={mode}
+          state={gameState}
+          isHost={isHost}
+          hostId={hostId}
+          report={reports[shown.round] ?? null}
+          onPhaseIntro={onPhaseIntro}
+          onStartVote={() => setVoteRound(shown.round)}
+        />
+      )
+    }
+  } else if (shown?.view === 'vote') {
+    content = <VoteView code={code} tieBreak={shown.tieBreak} role={role} />
   } else if (shown?.view === 'end') {
     content = <EndView winner={shown.winner} />
   }

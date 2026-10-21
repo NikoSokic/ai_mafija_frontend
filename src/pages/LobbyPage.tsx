@@ -11,9 +11,11 @@ import ConnectionToast from '../components/ConnectionToast.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
 import LeaveRoomSheet from '../components/LeaveRoomSheet.tsx'
+import MeTag from '../components/MeTag.tsx'
 import RoleComposition from '../components/RoleComposition.tsx'
 import RulesSheet from '../components/RulesSheet.tsx'
 import { Screen, ScreenBody, ScreenFooter, ScreenTop } from '../components/Screen.tsx'
+import Section from '../components/Section.tsx'
 import Skyline from '../components/Skyline.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
@@ -232,20 +234,6 @@ function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
   )
 }
 
-type SectionProps = { title: string; aside?: string; children: ReactNode }
-
-function Section({ title, aside, children }: SectionProps) {
-  return (
-    <motion.section variants={riseItem} className="mt-[26px]">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="text-[15px] font-semibold">{title}</h3>
-        {aside && <span className="text-sm text-muted tabular-nums">{aside}</span>}
-      </div>
-      {children}
-    </motion.section>
-  )
-}
-
 type PlayerGridProps = {
   players: LobbyPlayerResponse[]
   vacant: number
@@ -277,11 +265,7 @@ function PlayerGrid({ players, vacant, hostId, meId, myEmoji }: PlayerGridProps)
             <div className="min-w-0">
               <div className="flex items-center">
                 <span className="truncate text-[15px] font-semibold">{p.nickname}</span>
-                {p.id === meId && (
-                  <span className="ml-1 shrink-0 rounded-full bg-accent-soft px-1.5 py-px text-[11px] font-semibold text-accent">
-                    ti
-                  </span>
-                )}
+                {p.id === meId && <MeTag />}
               </div>
               <div className="text-xs text-muted">{p.id === hostId ? 'Domaćin' : 'Spreman'}</div>
             </div>
