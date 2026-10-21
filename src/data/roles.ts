@@ -37,8 +37,8 @@ export const ROLES: Record<RoleKey, RoleInfo> = {
     icon: 'mask',
     order: 2,
     action: 'SILENCE',
-    short: 'Utišava igrača za idući dan.',
-    long: 'Dok je mafija živa, svake noći utiša jednog igrača za idući dan. Kad mafija padne, preuzima ubijanje. Policajcu izgleda nevino dok je mafija živa.',
+    short: 'Utišava igrača: idući dan ne govori i ne glasa.',
+    long: 'Dok je mafija živa, svake noći utiša jednog igrača: idući dan on ne govori i ne glasa. Kad mafija padne, preuzima ubijanje. Policajcu izgleda nevino dok je mafija živa.',
   },
   Doktor: {
     name: 'Doktor',

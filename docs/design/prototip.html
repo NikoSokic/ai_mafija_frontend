@@ -509,8 +509,8 @@ const ROLES = {
                 short:'Svake noći s timom uklanja jednog igrača.',
                 long:'Svake noći s ostatkom mafije bira jednog igrača kojeg uklanja.'},
   'Dama':      {name:'Dama',      team:'mafia', color:'var(--role-dama)',      icon:'mask',   order:2, action:'SILENCE',
-                short:'Utišava igrača za idući dan.',
-                long:'Dok je mafija živa, svake noći utiša jednog igrača za idući dan. Kad mafija padne, preuzima ubijanje. Policajcu izgleda nevino dok je mafija živa.'},
+                short:'Utišava igrača: idući dan ne govori i ne glasa.',
+                long:'Dok je mafija živa, svake noći utiša jednog igrača: idući dan on ne govori i ne glasa. Kad mafija padne, preuzima ubijanje. Policajcu izgleda nevino dok je mafija živa.'},
   'Doktor':    {name:'Doktor',    team:'town',  color:'var(--role-doktor)',    icon:'cross',  order:3, action:'SAVE',
                 short:'Svake noći štiti jednog igrača.',
                 long:'Svake noći štiti jednog igrača od napada mafije. Ako dva doktora zaštite istog igrača, on umire od predoziranja.'},
@@ -943,7 +943,7 @@ function nightCfg(m){
       list:others.filter(p=>p.id!==m.id), off:p=>teamOf(p)==='mafia'?'Tvoj tim':null,
       picker:p=>{const mate=alive().find(x=>x.role==='Mafia'&&x.id!==m.id); return mate && p.id===mafiaTarget()?mate:null}};
     case 'Dama': if(!mafiaAlive) return {need:1, verb:'Meta:', q:'Mafije više nema. Koga uklanjaš?', sub:'Preuzela si ulogu mafije i noćas biraš žrtvu.', list:others.filter(p=>p.id!==m.id), off:()=>null};
-      return {need:1, verb:'Utišavaš:', q:'Koga utišavaš za sutra?', sub:'Utišani igrač tijekom dana ne smije govoriti, ali može glasati.',
+      return {need:1, verb:'Utišavaš:', q:'Koga utišavaš za sutra?', sub:'Utišani igrač tijekom dana ne smije govoriti ni glasati.',
       list:others.filter(p=>p.id!==m.id), off:p=>teamOf(p)==='mafia'?'Mafija':(p.id===mafiaTarget()?'Meta mafije':null)};
     case 'Doktor': return {need:1, verb:'Štitiš:', q:'Koga štitiš noćas?', sub:'Možeš zaštititi i sebe. Ako mafija napadne baš tog igrača, preživjet će.',
       list:others, off:()=>null};
@@ -983,7 +983,7 @@ SCREENS.day = ()=>{
 <div class="screen has-sky">
   <div class="top"><div class="phase-title grow">${icon('sun',22)}Dan ${S.round}</div><button class="icon-btn" data-a="peekRole" aria-label="Pogledaj svoju ulogu">${icon('eye',22)}</button></div>
   <div class="body">
-    ${iAmSilenced?`<div class="banner rise" style="--d:0">${icon('mute',22)}<div><h4>${gx(m,'Utišan','Utišana')} si</h4><p>Danas ne smiješ govoriti ni pisati, ali možeš glasati.</p></div></div>`:''}
+    ${iAmSilenced?`<div class="banner rise" style="--d:0">${icon('mute',22)}<div><h4>${gx(m,'Utišan','Utišana')} si</h4><p>Danas ne smiješ govoriti ni glasati.</p></div></div>`:''}
     ${!isAlive(m.id)?`<div class="banner rise" style="--d:0">${icon('ghost',22)}<div><h4>Promatraš igru</h4><p>${deadText(m)}. Ne otkrivaj uloge.</p></div></div>`:''}
     <section class="section rise" style="--d:1"><div class="section-head"><h3>Što se dogodilo noćas</h3></div><div class="card report">${rows.join('')}</div></section>
     <section class="section rise" style="--d:2">
@@ -1099,7 +1099,7 @@ OVERLAYS.rules = ()=>`
     <li>Noć: uloge se bude jedna po jedna i tajno biraju metu.</li>
     <li>Jutro: narator otkriva tko je stradao i tko je utišan.</li>
     <li>Dan: svi raspravljaju i traže mafiju.</li>
-    <li>Glasanje: igrač s najviše glasova ispada. Kod izjednačenja glasa se ponovno samo između izjednačenih.</li>
+    <li>Glasanje: igrač s najviše glasova ispada. Utišani ne glasaju. Kod izjednačenja glasa se ponovno samo između izjednačenih.</li>
   </ol>
   <h3>Uloge po redu buđenja</h3>
   ${ROLE_KEYS.map(k=>`<div class="rule-role">${roleIcon(k,40)}<div><h4>${R(k).name}<span class="team-tag">${R(k).team==='mafia'?'tim mafije':'tim građana'}</span></h4><p>${R(k).long}</p></div></div>`).join('')}

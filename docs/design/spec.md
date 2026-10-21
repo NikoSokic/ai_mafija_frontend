@@ -275,7 +275,7 @@ Akcije po ulozi (`POST /api/actions {playerId, playerToken, actionType, targetPl
 | Uloga | `actionType` | Pitanje | Pravila u UI-ju |
 |---|---|---|---|
 | Mafia | `KILL` | Koga mafija uklanja večeras? | suigrači onemogućeni ("Tvoj tim"); prikaži odabir živog suigrača kao značku na meti |
-| Dama (mafija živa) | `SILENCE` | Koga utišavaš za sutra? | mafija onemogućena; meta mafije onemogućena ("Meta mafije") – backend to odbija |
+| Dama (mafija živa) | `SILENCE` | Koga utišavaš za sutra? | objašnjenje "Utišani igrač tijekom dana ne smije govoriti ni glasati."; mafija onemogućena; meta mafije onemogućena ("Meta mafije") – backend to odbija |
 | Dama (mafija mrtva) | `KILL` | Mafije više nema. Koga uklanjaš? | – |
 | Doktor | `SAVE` | Koga štitiš noćas? | može i sebe ("Ti") |
 | Policajac | `INVESTIGATE` | Koga istražuješ? | rezultat: `investigationResult` = `MAFIA` / `NOT_MAFIA` → "Niko je mafija" (crveno) / "Lea nije mafija" (plavo) |
@@ -285,7 +285,7 @@ Redoslijed buđenja (backend): MAFIA → DAMA → Doktor → Policajac → Novin
 
 ### 6.7 Dan
 - Prijelaz noć → dan, zatim naracija "Jutarnje vijesti".
-- Banner ako si utišan: "Utišan si. Danas ne smiješ govoriti ni pisati, ali možeš glasati." (ikona pulsira). Banner za promatrača.
+- Banner ako si utišan: "Utišan si. Danas ne smiješ govoriti ni glasati." (ikona pulsira). Banner za promatrača.
 - Kartica "Što se dogodilo noćas": ubijeni (sivi avatar, lubanja), utišani (značka), ili "Nitko nije stradao" (štit u boji doktora).
 - Rasprava: TimerRing (zadano 2:30); domaćin ima +30 s i Preskoči.
 - "U igri 5 od 8": popis živih (kruna, oznaka utišan), ispod "Ispali: …".
@@ -295,6 +295,7 @@ Redoslijed buđenja (backend): MAFIA → DAMA → Doktor → Policajac → Novin
 ### 6.8 Glasanje
 - Naslov "Glasanje" (ili "Ponovno glasanje") + chip "Dan N". "Glasalo 3 od 5" + točke.
 - Mreža `VoteCard`: tvoja kartica je "Ti" i ne može se odabrati. Odabir → "Tvoj glas: Lea" → HoldButton "Drži za glasanje". Nakon glasa: "Tvoj glas je zabilježen. Čekamo ostale."
+- Utišani igrač ne glasa (backend: `GameStateService.isSilencedDuringCurrentVoting`). Dama u Pravilima i na karti uloge: "Utišava igrača: idući dan ne govori i ne glasa."
 - Izjednačenje (`TIE_BREAK`): banner "Izjednačeno – glasaj ponovno samo između njih"; prikazuju se samo izjednačeni; izjednačeni ne glasaju ("Ti si u izjednačenju pa ovaj put ne glasaš.").
 - Rezultat:
   - `ELIMINATED` → EliminationOverlay ("Lea je izbačena", "Uloga ostaje tajna do kraja igre.") + gašenje prozora → naracija → Noć N+1
