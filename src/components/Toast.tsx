@@ -59,7 +59,7 @@ export function Spinner() {
   return (
     <span
       aria-hidden="true"
-      className="size-[22px] shrink-0 animate-[spin_.8s_linear_infinite] rounded-full border-[2.5px] border-line border-t-accent"
+      className="spinner size-[22px] shrink-0 animate-[spin_.8s_linear_infinite] rounded-full border-[2.5px] border-line border-t-accent"
     />
   )
 }

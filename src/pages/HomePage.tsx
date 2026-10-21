@@ -5,15 +5,18 @@ import Avatar from '../components/Avatar.tsx'
 import Button from '../components/Button.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
+import JoinSheet from '../components/JoinSheet.tsx'
+import LeaveRoomSheet from '../components/LeaveRoomSheet.tsx'
 import RulesSheet from '../components/RulesSheet.tsx'
 import { Screen, ScreenBody, ScreenFooter, ScreenTop } from '../components/Screen.tsx'
-import Sheet from '../components/Sheet.tsx'
 import Skyline from '../components/Skyline.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import { DEFAULT_EMOJI, EMOJIS } from '../data/emojis.ts'
 import { cx } from '../lib/cx.ts'
 import { EASE_OUT, riseItem } from '../lib/motion.ts'
 import { loadProfile, saveProfile, type Profile } from '../store/profile.ts'
+import { roomPath, useResumeStore } from '../store/resume.ts'
+import { loadSession, type Session } from '../store/session.ts'
 
 // Ukrasni grad: 8 prozora, upaljeni kao u prototipu
 const CITY = Array.from({ length: 8 }, (_, i) => ({ id: i }))
@@ -22,7 +25,7 @@ const CITY_ON = [0, 2, 3, 5, 7]
 // Boja kruga avatara na Početnoj (u igri se računa iz id-a igrača)
 const AVATAR_HUE = 350
 
-type OpenSheet = 'rules' | 'join' | 'rooms' | null
+type OpenSheet = 'rules' | 'join' | 'leave' | null
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -33,6 +36,9 @@ export default function HomePage() {
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [nickError, setNickError] = useState(false)
   const [sheet, setSheet] = useState<OpenSheet>(null)
+  const [session, setSession] = useState(loadSession)
+  // Kartica čeka provjeru pri pokretanju, da ne bljesne prije automatskog ulaska u sobu
+  const resumeDone = useResumeStore((s) => s.status === 'done')
   const nickRef = useRef<HTMLInputElement>(null)
   const gridId = useId()
   const errorId = useId()
@@ -43,14 +49,12 @@ export default function HomePage() {
     saveProfile(next)
   }
 
-  function createRoom() {
-    // Nova soba uzima nadimak domaćina iz profila
-    if (profile.nickname.trim() === '') {
-      setNickError(true)
-      nickRef.current?.focus()
-      return
-    }
-    navigate('/nova')
+  // Nova soba i ulazak kodom uzimaju nadimak iz profila
+  function requireNickname() {
+    if (profile.nickname.trim() !== '') return true
+    setNickError(true)
+    nickRef.current?.focus()
+    return false
   }
 
   const closeSheet = () => setSheet(null)
@@ -154,16 +158,18 @@ export default function HomePage() {
               ))}
             </motion.div>
           )}
+
+          {resumeDone && session && <ResumeCard session={session} onLeave={() => setSheet('leave')} />}
         </ScreenBody>
 
         <Skyline players={CITY} stateOf={(_, i) => (CITY_ON.includes(i) ? 'on' : 'off')} />
         <ScreenFooter rise className="bg-sky">
-          <Button onClick={createRoom}>Kreiraj sobu</Button>
+          <Button onClick={() => requireNickname() && navigate('/nova')}>Kreiraj sobu</Button>
           <div className="grid grid-cols-2 gap-2.5">
-            <Button variant="secondary" onClick={() => setSheet('join')}>
+            <Button variant="secondary" onClick={() => requireNickname() && setSheet('join')}>
               Uđi s kodom
             </Button>
-            <Button variant="ghost" onClick={() => setSheet('rooms')}>
+            <Button variant="ghost" onClick={() => navigate('/sobe')}>
               Javne sobe
             </Button>
           </div>
@@ -171,15 +177,48 @@ export default function HomePage() {
       </Screen>
 
       <RulesSheet open={sheet === 'rules'} onClose={closeSheet} />
-      {/* Upis koda (CodeInput) dolazi kad se spoji ulazak u sobu */}
-      <Sheet open={sheet === 'join'} onClose={closeSheet} title="Uđi s kodom" />
-      <Sheet
-        open={sheet === 'rooms'}
-        onClose={closeSheet}
-        title="Javne sobe"
-        subtitle="Popis javnih soba stiže uskoro. Zasad uđi s kodom koji ti pošalje domaćin."
-      />
+      <JoinSheet open={sheet === 'join'} onClose={closeSheet} nickname={profile.nickname.trim()} />
+      {session && (
+        <LeaveRoomSheet
+          open={sheet === 'leave'}
+          code={session.lobbyCode}
+          onClose={closeSheet}
+          onLeft={() => {
+            setSession(null)
+            closeSheet()
+          }}
+        />
+      )}
     </ThemeRoot>
+  )
+}
+
+type ResumeCardProps = { session: Session; onLeave: () => void }
+
+// Spremljena sesija (spec 6.10): igrač se može vratiti u sobu ili je napustiti
+function ResumeCard({ session, onLeave }: ResumeCardProps) {
+  const navigate = useNavigate()
+  const code = session.lobbyCode
+  // stanje je poznato samo ako ga je provjera pri pokretanju dobila baš za ovu sobu
+  const status = useResumeStore((s) => (s.lobbyCode === code ? s.lobbyStatus : null))
+
+  return (
+    <motion.section variants={riseItem} className="mt-6 rounded-card border border-line bg-surface p-4">
+      <h3 className="text-[17px] font-semibold tracking-[-.01em]">Nastavi igru u sobi {code}</h3>
+      {status && (
+        <p className="mt-1 text-[13px] leading-[1.45] text-muted">
+          {status === 'IN_PROGRESS' ? 'Igra je u tijeku.' : 'Soba čeka igrače.'}
+        </p>
+      )}
+      <div className="mt-3.5 flex gap-2">
+        <Button size="sm" onClick={() => navigate(roomPath(code, status))}>
+          Nastavi
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onLeave}>
+          Napusti
+        </Button>
+      </div>
+    </motion.section>
   )
 }
 

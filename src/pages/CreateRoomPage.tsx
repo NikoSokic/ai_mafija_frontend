@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router'
-import { createLobby, describeError, getRoles, type Role } from '../api/rest.ts'
+import { createLobby, describeError, getRoles } from '../api/rest.ts'
+import type { Role } from '../api/types.ts'
 import Button from '../components/Button.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
@@ -19,6 +20,7 @@ import { cx } from '../lib/cx.ts'
 import { riseItem } from '../lib/motion.ts'
 import { useBump } from '../lib/useBump.ts'
 import { loadProfile } from '../store/profile.ts'
+import { DEFAULT_ROOM_SETTINGS, saveRoomSettings, type Mode, type Visibility } from '../store/roomSettings.ts'
 import { saveSession } from '../store/session.ts'
 
 const MIN_PLAYERS = 4
@@ -34,10 +36,6 @@ type RolesState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ready'; roles: RoomRole[] }
-
-// Način igre, vidljivost i glas backend još ne prima (docs/backend-todo.md) – zasad žive samo ovdje
-type Mode = 'live' | 'online'
-type Visibility = 'private' | 'public'
 
 // Uloge koje frontend ne zna prikazati se preskaču; redoslijed je kao u ROLES
 function toRoomRoles(list: Role[]): RoomRole[] {
@@ -62,9 +60,10 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
   // Dok je true, uloge prate broj igrača po preporuci; ručna izmjena uloge to isključuje
   const [followRecommended, setFollowRecommended] = useState(true)
   const [manualCounts, setManualCounts] = useState(() => recommendedCounts(DEFAULT_MAX_PLAYERS))
-  const [mode, setMode] = useState<Mode>('live')
-  const [visibility, setVisibility] = useState<Visibility>('private')
-  const [voice, setVoice] = useState(true)
+  // Način igre, vidljivost i glas backend još ne prima (docs/backend-todo.md) – spremaju se samo lokalno
+  const [mode, setMode] = useState<Mode>(DEFAULT_ROOM_SETTINGS.mode)
+  const [visibility, setVisibility] = useState<Visibility>(DEFAULT_ROOM_SETTINGS.visibility)
+  const [voice, setVoice] = useState(DEFAULT_ROOM_SETTINGS.voice)
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
 
@@ -121,6 +120,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
         playerToken: res.playerToken,
         lobbyCode: res.code,
       })
+      saveRoomSettings({ code: res.code, counts, mode, visibility, voice })
       navigate(`/soba/${res.code}`)
     } catch (e) {
       setError(describeError(e))

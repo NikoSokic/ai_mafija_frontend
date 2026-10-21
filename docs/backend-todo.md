@@ -4,18 +4,45 @@ Popis stvari koje sučelje već prikazuje ili koristi, a backend (`ai_mafija_bac
 Brojevi u zagradama upućuju na `docs/design/spec.md`, poglavlje 10.
 
 ## Postavke sobe i javne sobe (10.3)
-Nova soba nudi tri postavke koje se zasad samo prikazuju i ne šalju (žive u stanju ekrana `CreateRoomPage`):
+Nova soba nudi tri postavke koje se ne šalju backendu:
 
 - **Način igre**: `mode: "LIVE" | "ONLINE"`
 - **Tko može ući**: `isPublic: boolean` ("Samo s kodom" / "Svi (javna)")
 - **Glas naratora**: `voiceEnabled: boolean`
 
+Zasad ih domaćinov preglednik sprema lokalno (`aimafija.room`) i lobby iz toga prikazuje chipove Privatna/Javna, Uživo/Online, Narator s glasom/bez glasa. Ostali igrači vide zadane vrijednosti (privatna, uživo, s glasom), koje ne moraju biti točne.
+
 Treba:
-- polja u `Lobby` i `CreateLobbyRequest`, te u odgovoru `GET /api/lobbies/{code}` (lobby prikazuje chipove Privatna/Javna, Uživo/Online, Narator s glasom/bez glasa)
-- endpoint za javne sobe, npr. `GET /api/lobbies?public=true&status=WAITING` (gumb **Javne sobe** na Početnoj zasad otvara samo "Uskoro")
+- polja u `Lobby` i `CreateLobbyRequest`, te u odgovoru `GET /api/lobbies/{code}`
+- endpoint za javne sobe, npr. `GET /api/lobbies?public=true&status=WAITING` (ekran `/sobe` zasad uvijek prikazuje prazno stanje "Trenutno nema soba")
 
 ## Avatar (10.4)
 Igrač bira emoji na Početnoj; sprema se samo lokalno (`aimafija.profile`). `Player` nema `avatarEmoji` – dodati u `CreateLobbyRequest` (domaćin), `JoinLobbyRequest` i `LobbyPlayerResponse`.
 
+Zasad u lobbyju igrač vidi svoj odabrani emoji, a tuđi avatar dobiva emoji izračunat iz id-a (`src/lib/playerLook.ts`). Zato isti igrač na različitim uređajima može imati različit emoji.
+
 ## Uloge (10.7)
 Nova soba uloge čita s `GET /api/test/roles`. Treba javni `GET /api/roles` (isti oblik: `[{id, name, opis}]`).
+
+## Sastav uloga u sobi
+`GET /api/lobbies/{code}` (`LobbyDetailsResponse`) ne vraća koje su uloge odabrane. Lobby ih prikazuje samo domaćinu (iz `aimafija.room`), a ostali vide "Domaćin je odabrao uloge za N igrača."
+
+Treba: `roles: [{roleId, roleName, count}]` u `LobbyDetailsResponse`.
+
+## Tko je domaćin
+`LobbyPlayerResponse` nema oznaku domaćina, a `LobbyDetailsResponse` nema `hostPlayerId`. Igrač za sebe to saznaje iz `POST /api/players/reconnect` (`host`). Za krunu kod drugih frontend pretpostavlja da je domaćin igrač s najmanjim `id`, jer se domaćin u bazu sprema prvi.
+
+Treba: `host: boolean` u `LobbyPlayerResponse` ili `hostPlayerId` u `LobbyDetailsResponse`.
+
+## Kodovi grešaka
+`ApiErrorResponse` ima samo slobodan tekst (`message`). Frontend poruke prevodi za igrače usporedbom točnog teksta (`"Lobby je popunjen."`, `"Igrač s tim nicknameom već postoji u lobbyju."`…, vidi `describeError` u `src/api/rest.ts`). Svaka promjena teksta na backendu pokvari prijevod.
+
+Treba: stabilno polje `code`, npr. `LOBBY_NOT_FOUND`, `LOBBY_FULL`, `NICKNAME_TAKEN`, `GAME_ALREADY_STARTED`, `LOBBY_NOT_FULL`.
+
+## Napuštanje sobe
+Nema endpointa za izlazak iz sobe. "Napusti sobu" (strelica u lobbyju i kartica "Nastavi igru" na Početnoj) nakon potvrde briše samo lokalnu sesiju (`aimafija.session`). Na backendu igrač ostaje u sobi: drugi ga i dalje vide u popisu, zauzima mjesto (soba se može "napuniti" igračima kojih nema), a njegov nadimak ostaje zauzet pa se s istim nadimkom ne može vratiti. Isto vrijedi i za domaćina, pa soba ostaje bez nekoga tko je može pokrenuti.
+
+Treba: npr. `POST /api/lobbies/{code}/leave {playerId, playerToken}` i WebSocket događaj `PLAYER_LEFT` (lobby bi tada maknuo igrača iz popisa i ugasio njegov prozor). Za domaćina treba odlučiti: predati ulogu domaćina sljedećem igraču ili zatvoriti sobu.
+
+## Duljina nadimka
+`CreateLobbyRequest.hostNickname` ima `@Size(max = 30)`, a `JoinLobbyRequest.nickname` nema ograničenje. Frontend ograničava nadimak na 16 znakova. Treba isto pravilo na oba mjesta.

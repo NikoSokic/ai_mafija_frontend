@@ -6,8 +6,13 @@ export interface Session {
   lobbyCode: string
 }
 
+// localStorage može baciti grešku (privatni prozor, blokirani podaci) – tada sesija jednostavno nije spremljena
 export function saveSession(session: Session) {
-  localStorage.setItem(KEY, JSON.stringify(session))
+  try {
+    localStorage.setItem(KEY, JSON.stringify(session))
+  } catch {
+    // nema spremanja
+  }
 }
 
 export function loadSession(): Session | null {
@@ -16,5 +21,14 @@ export function loadSession(): Session | null {
     return raw ? (JSON.parse(raw) as Session) : null
   } catch {
     return null
+  }
+}
+
+// Token više ne vrijedi (npr. baza je obrisana) – igrač opet ulazi u sobu
+export function clearSession() {
+  try {
+    localStorage.removeItem(KEY)
+  } catch {
+    // nema što obrisati
   }
 }
