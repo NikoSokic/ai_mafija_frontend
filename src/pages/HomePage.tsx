@@ -115,7 +115,7 @@ export default function HomePage() {
                   }}
                   className={cx(
                     'h-14 w-full rounded-ctrl border bg-surface px-4 text-lg font-medium',
-                    '[transition:border-color_.2s,box-shadow_.2s] focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)] focus:outline-none',
+                    '[transition:border-color_.2s,box-shadow_.2s] focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)]',
                     nickError ? 'border-accent' : 'border-line',
                   )}
                 />

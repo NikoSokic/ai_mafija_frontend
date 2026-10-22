@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router'
 import { createLobby, describeError, getRoles } from '../api/rest.ts'
 import type { Role } from '../api/types.ts'
 import Button from '../components/Button.tsx'
+import { useErrorToast } from '../components/ErrorToast.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
 import OptionCard from '../components/OptionCard.tsx'
@@ -84,7 +85,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
   const [mode, setMode] = useState<Mode>(previous?.mode ?? DEFAULT_ROOM_SETTINGS.mode)
   const [visibility, setVisibility] = useState<Visibility>(previous?.visibility ?? DEFAULT_ROOM_SETTINGS.visibility)
   const [voice, setVoice] = useState(previous?.voice ?? DEFAULT_ROOM_SETTINGS.voice)
-  const [error, setError] = useState<string | null>(null)
+  const { toast, show } = useErrorToast()
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
@@ -94,12 +95,15 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
         if (!cancelled) setRoles({ status: 'ready', roles: toRoomRoles(list) })
       })
       .catch((e: unknown) => {
-        if (!cancelled) setRoles({ status: 'error', message: describeError(e) })
+        if (cancelled) return
+        const message = describeError(e)
+        setRoles({ status: 'error', message })
+        show('Uloge nisu učitane', message)
       })
     return () => {
       cancelled = true
     }
-  }, [rolesRequest])
+  }, [rolesRequest, show])
 
   function retryRoles() {
     setRoles({ status: 'loading' })
@@ -126,7 +130,6 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
   async function submit() {
     if (roles.status !== 'ready') return
     setSending(true)
-    setError(null)
     try {
       const res = await createLobby({
         hostNickname,
@@ -143,7 +146,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
       saveRoomSettings({ code: res.code, counts, mode, visibility, voice })
       navigate(`/soba/${res.code}`)
     } catch (e) {
-      setError(describeError(e))
+      show('Soba nije kreirana', describeError(e))
     } finally {
       setSending(false)
     }
@@ -247,11 +250,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
           {roles.status === 'ready' && (
             <SumLine diff={diff} onFillTown={canFillTown ? () => setCount('Građanin', counts.Građanin + diff) : undefined} />
           )}
-          {error && (
-            <p role="alert" className="text-sm leading-[1.45] text-accent">
-              {error}
-            </p>
-          )}
+          {toast}
           <Button disabled={!canSubmit} onClick={submit}>
             {sending ? 'Kreiram sobu…' : 'Kreiraj sobu'}
           </Button>

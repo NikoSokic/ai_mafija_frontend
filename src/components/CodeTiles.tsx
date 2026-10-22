@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { cx } from '../lib/cx.ts'
+import { EASE_SPRING } from '../lib/motion.ts'
 
-const EASE_SPRING: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
 
 type CodeTilesProps = { code: string; className?: string }
 

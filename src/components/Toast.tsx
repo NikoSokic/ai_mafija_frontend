@@ -1,9 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, type ReactNode } from 'react'
+import { EASE_OUT, EASE_SPRING } from '../lib/motion.ts'
 import ThemedPortal from './ThemedPortal.tsx'
 
-const EASE_OUT: [number, number, number, number] = [0.2, 0.8, 0.2, 1]
-const EASE_SPRING: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
 
 type ToastProps = {
   open: boolean
@@ -37,7 +36,7 @@ export default function Toast({ open, title, text, leading, duration, onClose }:
         <AnimatePresence>
           {open && (
             <motion.div
-              className="fixed inset-x-0 top-3 z-[60] mx-auto flex w-[calc(100%-32px)] max-w-[388px] items-center gap-3 rounded-[18px] border border-line bg-surface-2 px-4 py-3.5 shadow-[0_18px_40px_-16px_rgba(0,0,0,.6)]"
+              className="fixed inset-x-0 top-[calc(12px+env(safe-area-inset-top))] z-[60] mx-auto flex w-[calc(100%-32px)] max-w-[388px] items-center gap-3 rounded-[18px] border border-line bg-surface-2 px-4 py-3.5 shadow-[0_18px_40px_-16px_rgba(0,0,0,.6)]"
               initial={{ opacity: 0, y: -30, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: EASE_SPRING } }}
               exit={{ opacity: 0, y: -20, transition: { duration: 0.4, ease: EASE_OUT } }}

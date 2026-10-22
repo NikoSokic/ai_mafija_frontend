@@ -7,7 +7,7 @@ import Toast, { Spinner } from './Toast.tsx'
 export default function ConnectionToast() {
   const connection = useGameStore((s) => s.connection)
   const [toast, setToast] = useState<'off' | 'lost' | 'back'>('off')
-  const [prev, setPrev] = useState(connection)
+  const [prev, setPrev] = useState<typeof connection>('connecting')
   if (connection !== prev) {
     setPrev(connection)
     if (connection === 'disconnected') setToast('lost')

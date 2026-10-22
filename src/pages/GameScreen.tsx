@@ -5,6 +5,7 @@ import { ApiError, describeError, getGameState } from '../api/rest.ts'
 import type { GameStateResponse, PublicGameStateResponse, ResolveVoteResponse, Winner } from '../api/types.ts'
 import Button from '../components/Button.tsx'
 import ConnectionToast from '../components/ConnectionToast.tsx'
+import { useErrorToast } from '../components/ErrorToast.tsx'
 import DayView from '../components/game/DayView.tsx'
 import EliminationOverlay from '../components/game/EliminationOverlay.tsx'
 import EndView from '../components/game/EndView.tsx'
@@ -15,7 +16,7 @@ import RoleReveal from '../components/game/RoleReveal.tsx'
 import VoteView from '../components/game/VoteView.tsx'
 import { Icon } from '../components/icons.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
-import Toast from '../components/Toast.tsx'
+import Toast, { Spinner } from '../components/Toast.tsx'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { ROLES, type RoleKey } from '../data/roles.ts'
 import {
@@ -178,6 +179,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   // pritisnuo je Spreman sam, a naracija početka igre još traje
   const [ready, setReady] = useState(false)
   const requestId = useRef(0)
+  const { toast: errorToast, show: showError } = useErrorToast()
 
   // Privatno stanje (uloga, potez…) dolazi samo iz GET-a; zakašnjeli odgovor se odbacuje
   const refresh = useCallback(() => {
@@ -192,9 +194,11 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
       .catch((e: unknown) => {
         if (id !== requestId.current) return
         if (e instanceof ApiError && e.status === 401) clearSession()
-        setLoadError(describeError(e, code))
+        const message = describeError(e, code)
+        setLoadError(message)
+        showError('Stanje igre nije učitano', message)
       })
-  }, [code, session])
+  }, [code, session, showError])
 
   // pri ulasku i nakon svakog (ponovnog) spajanja, jer su se događaji mogli propustiti
   useEffect(() => {
@@ -391,6 +395,16 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   return (
     <ThemeRoot theme={theme}>
       {content}
+      {errorToast}
+      {!content && !loadError && !transition && (
+        <main
+          role="status"
+          className="mx-auto flex min-h-dvh max-w-[420px] flex-col items-center justify-center gap-4 p-5 text-center"
+        >
+          <Spinner />
+          <p className="text-sm text-muted">Učitavam igru…</p>
+        </main>
+      )}
       {!content && loadError && (
         <main className="mx-auto flex min-h-dvh max-w-[420px] flex-col items-center justify-center gap-4 p-5 text-center">
           <p className="text-muted">{loadError}</p>

@@ -23,7 +23,7 @@ export function Screen({ children, className = '' }: ScreenProps) {
 
 export function ScreenTop({ children }: { children: ReactNode }) {
   return (
-    <div className="relative z-[3] flex h-15 shrink-0 items-center gap-1.5 pr-2.5 pl-2">{children}</div>
+    <div className="relative z-[3] flex h-[calc(60px+env(safe-area-inset-top))] shrink-0 items-center gap-1.5 pt-[env(safe-area-inset-top)] pr-2.5 pl-2">{children}</div>
   )
 }
 

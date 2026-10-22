@@ -1,6 +1,7 @@
 import type { Variants } from 'framer-motion'
 
 export const EASE_OUT: [number, number, number, number] = [0.2, 0.8, 0.2, 1]
+export const EASE_SPRING: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
 
 // Ulaz ekrana (spec 8): elementi se dižu jedan za drugim s razmakom 70 ms.
 // Varijante se pokreću samo pri mountu, pa re-render ne ponavlja animaciju.

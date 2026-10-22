@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { describeError, joinLobby } from '../api/rest.ts'
 import { saveSession } from '../store/session.ts'
 import Button from './Button.tsx'
+import { useErrorToast } from './ErrorToast.tsx'
 import CodeInput from './CodeInput.tsx'
 import Sheet from './Sheet.tsx'
 
@@ -37,6 +38,7 @@ function JoinCodeForm({ nickname }: { nickname: string }) {
   const [shake, setShake] = useState(0)
   const [sending, setSending] = useState(false)
   const errorId = useId()
+  const { toast, show } = useErrorToast()
 
   function fail(message: string) {
     setError(message)
@@ -54,7 +56,9 @@ function JoinCodeForm({ nickname }: { nickname: string }) {
       saveSession({ playerId: res.playerId, playerToken: res.playerToken, lobbyCode: res.lobbyCode })
       navigate(`/soba/${res.lobbyCode}`)
     } catch (e) {
-      fail(describeError(e, code))
+      const message = describeError(e, code)
+      fail(message)
+      show('Ulazak nije uspio', message)
       setSending(false)
     }
   }
@@ -78,6 +82,7 @@ function JoinCodeForm({ nickname }: { nickname: string }) {
       <Button disabled={sending} onClick={submit}>
         {sending ? 'Ulazim u sobu…' : 'Uđi u sobu'}
       </Button>
+      {toast}
     </>
   )
 }

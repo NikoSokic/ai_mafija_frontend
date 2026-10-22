@@ -105,7 +105,7 @@ export default function CodeInput({
           onPaste={paste}
           className={cx(
             'h-15 w-[46px] min-w-0 rounded-[14px] border bg-bg text-center text-[28px] font-bold uppercase caret-accent',
-            '[transition:border-color_.2s,box-shadow_.2s] focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)] focus:outline-none',
+            '[transition:border-color_.2s,box-shadow_.2s] focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)]',
             error ? 'border-accent' : 'border-line',
           )}
         />

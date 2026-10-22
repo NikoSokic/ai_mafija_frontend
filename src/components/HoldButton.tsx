@@ -22,7 +22,7 @@ type HoldButtonProps = {
 }
 
 // Potvrda držanjem – za konačne odluke (Spreman sam, noćna akcija, glas).
-// Sloj se puni slijeva; pušta li se ranije, vraća se na 0. Enter/Space potvrđuje odmah.
+// Sloj se puni slijeva; pušta li se ranije, vraća se na 0. Isto vrijedi za držanje Enter/Space.
 export default function HoldButton({
   onConfirm,
   children,
@@ -59,7 +59,11 @@ export default function HoldButton({
   }
 
   function start(e: PointerEvent<HTMLButtonElement>) {
-    if (disabled || e.button !== 0 || rafRef.current || lockedRef.current) return
+    if (e.button === 0) begin()
+  }
+
+  function begin() {
+    if (disabled || rafRef.current || lockedRef.current) return
     const duration = reduceMotion ? HOLD_MS_REDUCED : HOLD_MS
     const t0 = performance.now()
     const tick = (now: number) => {
@@ -98,7 +102,11 @@ export default function HoldButton({
   function handleKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
     if (e.key !== 'Enter' && e.key !== ' ') return
     e.preventDefault()
-    if (!e.repeat) onConfirm()
+    if (!e.repeat) begin()
+  }
+
+  function handleKeyUp(e: KeyboardEvent<HTMLButtonElement>) {
+    if (e.key === 'Enter' || e.key === ' ') cancel()
   }
 
   // Namjerno bez onClick: sintetički klik (npr. Space na keyup) ne smije potvrditi
@@ -118,6 +126,8 @@ export default function HoldButton({
       onPointerLeave={cancel}
       onPointerCancel={cancel}
       onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+      onBlur={cancel}
       onContextMenu={(e) => e.preventDefault()}
     >
       <span

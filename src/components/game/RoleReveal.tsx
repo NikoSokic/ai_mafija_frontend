@@ -56,7 +56,7 @@ export default function RoleReveal({ role, mode, onReady }: RoleRevealProps) {
             tabIndex={0}
             aria-pressed={open}
             aria-label={hold ? 'Drži za prikaz uloge' : 'Dodirni za prikaz uloge'}
-            className="mt-2.5 mb-[18px] aspect-[3/4.2] w-[min(270px,74vw)] cursor-pointer touch-none [perspective:1200px] outline-none select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+            className="mt-2.5 mb-[18px] aspect-[3/4.2] w-[min(270px,74vw)] cursor-pointer touch-none [perspective:1200px] select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
             onPointerDown={handlePointerDown}
             onPointerUp={hold ? () => setOpen(false) : undefined}
             onPointerCancel={hold ? () => setOpen(false) : undefined}

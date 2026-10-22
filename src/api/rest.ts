@@ -11,8 +11,6 @@ import type {
   JoinLobbyResponse,
   LobbyDetailsResponse,
   PlayerAuth,
-  PlayerRoleRequest,
-  PlayerRoleResponse,
   ReconnectRequest,
   ReconnectResponse,
   ResolveNightResponse,
@@ -123,9 +121,6 @@ export const getGameState = (code: string, { playerId, playerToken }: PlayerAuth
   request<GameStateResponse>(`${lobbyPath(code)}/game-state`, {
     headers: { 'X-Player-Id': String(playerId), 'X-Player-Token': playerToken },
   })
-
-export const getPlayerRole = ({ playerId, playerToken }: PlayerAuth) =>
-  request<PlayerRoleResponse>('/api/players/role', post({ playerId, playerToken } satisfies PlayerRoleRequest))
 
 export const reconnect = ({ playerId, playerToken }: PlayerAuth) =>
   request<ReconnectResponse>('/api/players/reconnect', post({ playerId, playerToken } satisfies ReconnectRequest))

@@ -1,9 +1,8 @@
 import { motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
-import { EASE_OUT } from '../../lib/motion.ts'
+import { EASE_OUT, EASE_SPRING } from '../../lib/motion.ts'
 import ThemedPortal from '../ThemedPortal.tsx'
 
-const EASE_SPRING: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
 
 // Trajanje iz spec 8: ekran ispod se mijenja u 1,1 s, overlay nestaje od 2,1 s
 const SWAP_MS = 1100
@@ -91,7 +90,7 @@ export default function PhaseTransition({ kind, title, subtitle, onSwap, onDone 
             ))}
           </h2>
           <motion.p
-            className="mt-3 text-[17px] text-white/70"
+            className="mt-3 text-[17px] text-white/85"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 1, ease: EASE_OUT }}

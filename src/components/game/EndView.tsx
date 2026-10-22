@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import type { LobbyPlayerResponse, Winner } from '../../api/types.ts'
 import { DEFAULT_EMOJI } from '../../data/emojis.ts'
 import { isRoleKey, ROLES, type RoleKey, type Team } from '../../data/roles.ts'
-import { riseItem } from '../../lib/motion.ts'
+import { EASE_SPRING, riseItem } from '../../lib/motion.ts'
 import { playerEmoji, playerHue } from '../../lib/playerLook.ts'
 import { clearNotes } from '../../store/notes.ts'
 import { loadProfile } from '../../store/profile.ts'
@@ -167,7 +167,7 @@ function Headline({ title, sentence, round }: { title: string; sentence: string;
                     className="inline-block"
                     initial={reduceMotion ? false : { opacity: 0, y: '40%', rotate: 6 }}
                     animate={{ opacity: 1, y: 0, rotate: 0 }}
-                    transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1], delay: i * 0.045 + 0.2 }}
+                    transition={{ duration: 0.7, ease: EASE_SPRING, delay: i * 0.045 + 0.2 }}
                   >
                     {char}
                   </motion.span>

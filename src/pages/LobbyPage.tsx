@@ -8,6 +8,7 @@ import Button from '../components/Button.tsx'
 import Chip from '../components/Chip.tsx'
 import CodeTiles from '../components/CodeTiles.tsx'
 import ConnectionToast from '../components/ConnectionToast.tsx'
+import { useErrorToast } from '../components/ErrorToast.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
 import LeaveRoomSheet from '../components/LeaveRoomSheet.tsx'
@@ -21,7 +22,7 @@ import ThemeRoot from '../components/ThemeRoot.tsx'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { copyText } from '../lib/clipboard.ts'
 import { cx } from '../lib/cx.ts'
-import { riseItem } from '../lib/motion.ts'
+import { EASE_SPRING, riseItem } from '../lib/motion.ts'
 import { playerEmoji, playerHue } from '../lib/playerLook.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore, type Lobby } from '../store/gameStore.ts'
@@ -29,7 +30,6 @@ import { loadProfile, saveProfile } from '../store/profile.ts'
 import { DEFAULT_ROOM_SETTINGS, loadRoomSettings } from '../store/roomSettings.ts'
 import { clearSession, loadSession, saveSession, type Session } from '../store/session.ts'
 
-const EASE_SPRING: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
 
 // Igrač na ovom uređaju; je li domaćin piše u popisu igrača (host)
 type Me = { session: Session }
@@ -342,28 +342,23 @@ type StartButtonProps = { code: string; session: Session; missing: number }
 
 function StartButton({ code, session, missing }: StartButtonProps) {
   const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { toast, show } = useErrorToast()
 
   async function start() {
     setSending(true)
-    setError(null)
     try {
       await startLobby(code, session)
       // ne čeka se GAME_STARTED: ako veza ne radi, domaćin svejedno ide u igru
       useGameStore.getState().gameStarted()
     } catch (e) {
-      setError(describeError(e, code))
+      show('Igra nije pokrenuta', describeError(e, code))
       setSending(false)
     }
   }
 
   return (
     <>
-      {error && (
-        <p role="alert" className="text-sm leading-[1.45] text-accent">
-          {error}
-        </p>
-      )}
+      {toast}
       <Button disabled={missing > 0 || sending} onClick={start}>
         {missing > 0 ? `Čeka se još ${missing}` : sending ? 'Pokrećem igru…' : 'Pokreni igru'}
       </Button>
@@ -380,6 +375,7 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
   const [sending, setSending] = useState(false)
   const inputId = useId()
   const errorId = useId()
+  const { toast, show } = useErrorToast()
 
   if (lobby.status !== 'WAITING') return <FooterNote>Igra u toj sobi je već počela.</FooterNote>
   if (lobby.players.length >= lobby.maxPlayers) return <FooterNote>Soba je puna.</FooterNote>
@@ -410,7 +406,9 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
       })
       onJoined(session)
     } catch (e) {
-      setError(describeError(e, lobby.code))
+      const message = describeError(e, lobby.code)
+      setError(message)
+      show('Ulazak nije uspio', message)
       setSending(false)
     }
   }
@@ -431,7 +429,7 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
           onChange={(e) => setNickname(e.target.value)}
           className={cx(
             'h-14 w-full rounded-ctrl border bg-surface px-4 text-lg font-medium',
-            '[transition:border-color_.2s,box-shadow_.2s] focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)] focus:outline-none',
+            '[transition:border-color_.2s,box-shadow_.2s] focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)]',
             error ? 'border-accent' : 'border-line',
           )}
         />
@@ -444,6 +442,7 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
       <Button type="submit" disabled={sending}>
         {sending ? 'Ulazim u sobu…' : 'Uđi u sobu'}
       </Button>
+      {toast}
     </form>
   )
 }
