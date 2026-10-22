@@ -3,24 +3,6 @@
 Popis stvari koje sučelje već prikazuje ili koristi, a backend (`ai_mafia_backend`) ih još nema.
 Brojevi u zagradama upućuju na `docs/design/spec.md`, poglavlje 10. Pravila igre su u `docs/pravila-igre.md`.
 
-## Postavke sobe i javne sobe (10.3)
-Nova soba nudi tri postavke koje se ne šalju backendu:
-
-- **Način igre**: `mode: "LIVE" | "ONLINE"`
-- **Tko može ući**: `isPublic: boolean` ("Samo s kodom" / "Svi (javna)")
-- **Glas naratora**: `voiceEnabled: boolean`
-
-Zasad ih domaćinov preglednik sprema lokalno (`aimafija.room`) i lobby iz toga prikazuje chipove Privatna/Javna, Uživo/Online, Narator s glasom/bez glasa. Ostali igrači vide zadane vrijednosti (privatna, uživo, s glasom), koje ne moraju biti točne. Zato i karta uloge gostima uvijek radi u načinu Uživo.
-
-Treba:
-- polja u `Lobby` i `CreateLobbyRequest`, te u odgovoru `GET /api/lobbies/{code}`
-- endpoint za javne sobe, npr. `GET /api/lobbies?public=true&status=WAITING` (ekran `/sobe` zasad uvijek prikazuje prazno stanje "Trenutno nema soba")
-
-## Avatar (10.4)
-Igrač bira emoji na Početnoj; sprema se samo lokalno (`aimafija.profile`). `Player` nema `avatarEmoji` – dodati u `CreateLobbyRequest` (domaćin), `JoinLobbyRequest` i `LobbyPlayerResponse`.
-
-Zasad u lobbyju igrač vidi svoj odabrani emoji, a tuđi avatar dobiva emoji izračunat iz id-a (`src/lib/playerLook.ts`). Zato isti igrač na različitim uređajima može imati različit emoji.
-
 ## "Spreman sam" nakon otkrivanja uloge (6.5, 10.13)
 Backend sada prvu noć počinje pauzom od 30 s, pa igrači stignu pogledati kartu. Ali ne zna je li tko stvarno vidio ulogu, pa nema brojača "Spremno 5 od 8".
 
@@ -28,6 +10,9 @@ Treba (ako se želi): `POST /api/lobbies/{code}/ready {playerId, playerToken}`, 
 
 ## Noćni red (6.6, 10.1)
 Backend šalje `GAME_STATE_CHANGED` pri svakom prijelazu poteza, a javno stanje sada ima i `currentTurnRole` (za naratora). Svaki klijent ipak nakon svakog događaja ponovno dohvaća `GET /game-state` da sazna `canAct`; s `currentTurnRole` bi to mogli raditi samo igrači te uloge, ali to je zasebna izmjena. Radi, ali s 8 igrača to je 8 zahtjeva po potezu. Bolje bi bilo slati potez privatno samo igračima te uloge (npr. STOMP user destination), što traži autentikaciju na WebSocketu.
+
+## Sastav uloga u popisu javnih soba (6.2)
+ ne vraća uloge, pa kartica javne sobe nema mini sastav uloga iz prototipa. Treba:  u  (ako se želi).
 
 ## Igraj ponovno (6.9)
 Backend nema "nova igra s istim igračima". Na kraju igre domaćin zato dobiva "Nova soba s istim postavkama": otvori se `/nova` s uloge, brojem igrača i načinom iz `aimafija.room`, a ostali igrači moraju ući novim kodom.
@@ -59,7 +44,8 @@ Prije pokretanja nove verzije backenda pokreni `db/migrations/001_rokovi_suzdrza
 - `GET /api/roles` za ekran Nova soba.
 - `currentTurnRole` u javnom stanju (null u uvodu noći i danju): narator budi ulogu na redu, a iz sastava (`GET /api/lobbies/{code}` → `roles`) zna koju je prije uspavao.
 - Potez traje uvijek `TURN_NARRATION` (6 s) + `NIGHT_TURN` (20 s) i ne završava ranije kad svi odigraju; glumljeni potez mrtve uloge traje jednako. `ActionResponse.nightResolved` zato iz `POST /api/actions` više nikad nije `true`.
-- `NIGHT_RESOLVED`, `VOTING_STARTED` i `PLAYER_LEFT` frontend preskače, jer odmah za njima stiže `GAME_STATE_CHANGED` s istim stanjem.
+- `NIGHT_RESOLVED` i `VOTING_STARTED` frontend preskače, jer odmah za njima stiže `GAME_STATE_CHANGED` s istim stanjem.
+- Postavke sobe (`mode`, `isPublic`, `voiceEnabled`), `avatarEmoji`, `hostPlayerId` i sastav uloga iz `GET /api/lobbies/{code}`; javne sobe iz `GET /api/lobbies?public=true` (osvježavanje svakih 5 s); `POST /api/lobbies/{code}/leave` s događajima `PLAYER_LEFT` i `HOST_CHANGED`. Lokalni `aimafija.room` služi samo kao predložak za "Nova soba s istim postavkama".
 
 ## Frontend još treba prilagoditi
 ### Mafija noću
@@ -67,9 +53,3 @@ Prije pokretanja nove verzije backenda pokreni `db/migrations/001_rokovi_suzdrza
 - Mafijaši smiju ponovno poslati `KILL`, a ekran nakon potvrde prikazuje "Potez je poslan". Tekst u `src/components/game/nightConfig.ts` ("vrijedi odabir onoga tko prvi potvrdi") više nije točan; kad se uvede promjena mete, vratiti tekst iz prototipa: "Tvoj tim vidi tvoj odabir. Odluka postaje konačna kad svi iz mafije potvrde."
 - `teammates` u `POST /api/players/role` za kartu uloge.
 - Rok poteza `currentPlayer.actionEndsAt` (npr. odbrojavanje uz "Tvoj red").
-
-### Sastav uloga u lobbyju
-`GET /api/lobbies/{code}` vraća `roles`, ali gosti u lobbyju i dalje vide samo "Domaćin je odabrao uloge za N igrača."
-
-### Napuštanje sobe
-"Napusti sobu" još samo briše lokalnu sesiju. Treba pozvati `POST /api/lobbies/{code}/leave` i obraditi `PLAYER_LEFT` (u lobbyju maknuti igrača iz popisa, `newHostPlayerId` za novu krunu).

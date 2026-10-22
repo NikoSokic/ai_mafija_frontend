@@ -1,12 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { describeError, extendDiscussion, startVoting } from '../../api/rest.ts'
 import type { PublicGameStateResponse } from '../../api/types.ts'
-import { DEFAULT_EMOJI } from '../../data/emojis.ts'
 import type { RoleKey } from '../../data/roles.ts'
 import { useCountdown } from '../../lib/useCountdown.ts'
-import { playerEmoji, playerHue } from '../../lib/playerLook.ts'
-import { loadProfile } from '../../store/profile.ts'
+import { avatarById, playerHue } from '../../lib/playerLook.ts'
 import type { Mode } from '../../store/roomSettings.ts'
+import { useGameStore } from '../../store/gameStore.ts'
 import type { Session } from '../../store/session.ts'
 import Avatar from '../Avatar.tsx'
 import Banner from '../Banner.tsx'
@@ -41,7 +40,6 @@ type ErrorToast = { open: boolean; title: string; text: string }
 // Dan (spec 6.7): izvještaj noći, rasprava s timerom i popis igrača.
 // Rok rasprave je na serveru, pa "+30 s" i "Pokreni glasanje" vrijede za sve igrače.
 export default function DayView({ code, round, role, mode, session, game, isHost }: DayViewProps) {
-  const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
   const timer = useCountdown(game.phaseEndsAt, DISCUSSION_S)
   const [busy, setBusy] = useState<'extend' | 'vote' | null>(null)
   const [error, setError] = useState<ErrorToast>({ open: false, title: '', text: '' })
@@ -51,11 +49,11 @@ export default function DayView({ code, round, role, mode, session, game, isHost
   const me = players.find((p) => p.id === meId)
   const alive = me?.alive ?? true
   const silenced = game.silencedPlayerIds
-  const hostId = players.find((p) => p.host)?.id
+  const hostId = useGameStore((s) => s.lobby?.hostPlayerId)
   const alivePlayers = players.filter((p) => p.alive)
   const deadPlayers = players.filter((p) => !p.alive)
 
-  const emojiOf = (id: number) => (id === meId ? myEmoji : playerEmoji(id))
+  const emojiOf = (id: number) => avatarById(players, id)
   const nicknameOf = (id: number) => players.find((p) => p.id === id)?.nickname ?? '?'
 
   async function extend() {

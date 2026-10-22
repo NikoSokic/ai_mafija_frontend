@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { describeError, getLobby } from '../api/rest.ts'
 import type { LobbyEvent } from '../api/types.ts'
+import { loadSession } from '../store/session.ts'
 import { useGameStore } from '../store/gameStore.ts'
 import { subscribeToLobby } from './stomp.ts'
 
@@ -9,6 +10,12 @@ function applyEvent(event: LobbyEvent) {
   switch (event.type) {
     case 'PLAYER_JOINED':
       store.playerJoined(event.data)
+      break
+    case 'PLAYER_LEFT':
+      store.playerLeft(event.data.playerId, event.data.newHostPlayerId, loadSession()?.playerId ?? null)
+      break
+    case 'HOST_CHANGED':
+      store.hostChanged(event.data.hostPlayerId, loadSession()?.playerId ?? null)
       break
     case 'GAME_STARTED':
       store.gameStarted()
@@ -23,7 +30,7 @@ function applyEvent(event: LobbyEvent) {
       store.voteResolved(event.data)
       break
     default:
-      // NIGHT_RESOLVED, VOTING_STARTED i PLAYER_LEFT donose isto što i GAME_STATE_CHANGED koji
+      // NIGHT_RESOLVED i VOTING_STARTED donose isto što i GAME_STATE_CHANGED koji
       // stiže odmah za njima; nove događaje (spec 10.1) klijent preskače dok ih ne zna
       break
   }

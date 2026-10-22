@@ -17,7 +17,6 @@ import VoteView from '../components/game/VoteView.tsx'
 import { Icon } from '../components/icons.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import Toast, { Spinner } from '../components/Toast.tsx'
-import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { ROLES, type RoleKey } from '../data/roles.ts'
 import {
   endNarration,
@@ -29,13 +28,13 @@ import {
   tieNarration,
   turnNarration,
 } from '../lib/narration.ts'
-import { playerEmoji } from '../lib/playerLook.ts'
+import { avatarOf } from '../lib/playerLook.ts'
 import type { Theme } from '../lib/theme.ts'
+import { useHostNotice } from '../lib/useHostNotice.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore } from '../store/gameStore.ts'
 import { loadNarrated, markNarrated } from '../store/narrated.ts'
-import { loadProfile } from '../store/profile.ts'
-import { DEFAULT_ROOM_SETTINGS, loadRoomSettings } from '../store/roomSettings.ts'
+import type { Mode } from '../store/roomSettings.ts'
 import { hasSeenRole, markRoleSeen } from '../store/seenRole.ts'
 import { clearSession, loadSession, type Session } from '../store/session.ts'
 
@@ -161,7 +160,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const gameState = useGameStore((s) => s.gameState)
   const voteResult = useGameStore((s) => s.voteResult)
   const lobby = useGameStore((s) => s.lobby)
-  const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
+  const becameHost = useGameStore((s) => s.becameHost)
   // zadnje poznato javno stanje igre, iz GET /game-state ili iz događaja GAME_STATE_CHANGED
   const [snap, setSnap] = useState<PublicGameStateResponse | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -175,11 +174,14 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const [toast, setToast] = useState<ToastState>({ open: false, title: '', text: '' })
   // ključevi naracija koje je igrač već pročitao (sessionStorage)
   const [narrated, setNarrated] = useState(() => loadNarrated(code))
-  const [voiceOn, setVoiceOn] = useState(() => loadRoomSettings(code)?.voice ?? DEFAULT_ROOM_SETTINGS.voice)
+  // glas naratora je postavka sobe iz backenda; igrač ga može ugasiti samo za sebe
+  const [voiceChoice, setVoiceChoice] = useState<boolean | null>(null)
+  const voiceOn = voiceChoice ?? lobby?.voiceEnabled ?? true
   // pritisnuo je Spreman sam, a naracija početka igre još traje
   const [ready, setReady] = useState(false)
   const requestId = useRef(0)
   const { toast: errorToast, show: showError } = useErrorToast()
+  useHostNotice(becameHost, showError)
 
   // Privatno stanje (uloga, potez…) dolazi samo iz GET-a; zakašnjeli odgovor se odbacuje
   const refresh = useCallback(() => {
@@ -294,8 +296,8 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   if (snap?.lobbyStatus === 'WAITING' || lobbyError) return <Navigate to={`/soba/${code}`} replace />
 
   const theme: Theme = shown ? themeOf(shown) : 'night'
-  const mode = loadRoomSettings(code)?.mode ?? DEFAULT_ROOM_SETTINGS.mode
-  const isHost = snap?.players.some((p) => p.id === session.playerId && p.host) ?? false
+  const mode: Mode = lobby?.mode === 'ONLINE' ? 'online' : 'live'
+  const isHost = lobby?.hostPlayerId === session.playerId
   const eliminated =
     currentOutcome?.kind === 'eliminated' ? snap?.players.find((p) => p.id === currentOutcome.playerId) : undefined
 
@@ -419,7 +421,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
             key={eliminated.id}
             playerId={eliminated.id}
             nickname={eliminated.nickname}
-            emoji={eliminated.id === session.playerId ? myEmoji : playerEmoji(eliminated.id)}
+            emoji={avatarOf(eliminated)}
             isMe={eliminated.id === session.playerId}
             onNext={() => handleEliminationNext(eliminated.id, eliminated.nickname)}
           />
@@ -444,7 +446,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
         narration={narration}
         voiceOn={voiceOn}
         canSpeak={mode === 'online' || isHost}
-        onToggleVoice={() => setVoiceOn((v) => !v)}
+        onToggleVoice={() => setVoiceChoice(!voiceOn)}
         onNext={handleNarrationNext}
       />
       {transition && (

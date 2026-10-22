@@ -2,12 +2,10 @@ import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { describeError, resolveNight, submitAction } from '../../api/rest.ts'
 import type { ActionResponse, AvailableActionResponse, GameStateResponse } from '../../api/types.ts'
-import { DEFAULT_EMOJI } from '../../data/emojis.ts'
 import { ROLES, type RoleKey } from '../../data/roles.ts'
 import { riseItem, riseList } from '../../lib/motion.ts'
-import { playerEmoji, playerHue } from '../../lib/playerLook.ts'
+import { avatarById, playerHue } from '../../lib/playerLook.ts'
 import { addNote, type NightNote, type NoteTarget } from '../../store/notes.ts'
-import { loadProfile } from '../../store/profile.ts'
 import type { Mode } from '../../store/roomSettings.ts'
 import type { Session } from '../../store/session.ts'
 import Button from '../Button.tsx'
@@ -64,7 +62,6 @@ export default function NightView({
   const [error, setError] = useState<ErrorToast>({ open: false, title: '', text: '' })
   const [endOpen, setEndOpen] = useState(false)
   const [ending, setEnding] = useState(false)
-  const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
 
   // ako se ekran ugasi dok igrač gleda rezultat, prelazak u dan više ne čeka
   useEffect(() => () => onHoldChange(false), [onHoldChange])
@@ -74,7 +71,7 @@ export default function NightView({
   const alivePlayers = players.filter((p) => p.alive)
   const action = me.canAct && !me.hasActed ? (me.availableActions[0] ?? null) : null
 
-  const emojiOf = (id: number) => (id === me.playerId ? myEmoji : playerEmoji(id))
+  const emojiOf = (id: number) => avatarById(players, id)
   const nicknameOf = (id: number) => players.find((p) => p.id === id)?.nickname ?? '?'
 
   // Zašto se igrač ne može odabrati; null = može. Mete određuje backend (targetPlayerIds),

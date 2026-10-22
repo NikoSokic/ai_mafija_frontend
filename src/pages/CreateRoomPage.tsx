@@ -20,6 +20,7 @@ import { ROLE_KEYS, ROLES, type RoleKey } from '../data/roles.ts'
 import { cx } from '../lib/cx.ts'
 import { riseItem } from '../lib/motion.ts'
 import { useBump } from '../lib/useBump.ts'
+import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { loadProfile } from '../store/profile.ts'
 import {
   DEFAULT_ROOM_SETTINGS,
@@ -81,7 +82,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
   const [manualCounts, setManualCounts] = useState(
     () => previous?.counts ?? recommendedCounts(DEFAULT_MAX_PLAYERS),
   )
-  // Način igre, vidljivost i glas backend još ne prima (docs/backend-todo.md) – spremaju se samo lokalno
+  // Zadnje postavke se pamte lokalno (aimafija.room) samo kao predložak za novu sobu
   const [mode, setMode] = useState<Mode>(previous?.mode ?? DEFAULT_ROOM_SETTINGS.mode)
   const [visibility, setVisibility] = useState<Visibility>(previous?.visibility ?? DEFAULT_ROOM_SETTINGS.visibility)
   const [voice, setVoice] = useState(previous?.voice ?? DEFAULT_ROOM_SETTINGS.voice)
@@ -137,6 +138,10 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
         roles: roles.roles
           .filter((r) => counts[r.key] > 0)
           .map((r) => ({ roleId: r.id, count: counts[r.key] })),
+        mode: mode === 'live' ? 'LIVE' : 'ONLINE',
+        isPublic: visibility === 'public',
+        voiceEnabled: voice,
+        hostAvatarEmoji: loadProfile()?.emoji || DEFAULT_EMOJI,
       })
       saveSession({
         playerId: res.hostPlayerId,

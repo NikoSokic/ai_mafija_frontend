@@ -11,6 +11,7 @@ import type {
   JoinLobbyResponse,
   LobbyDetailsResponse,
   PlayerAuth,
+  PublicLobbyResponse,
   ReconnectRequest,
   ReconnectResponse,
   ResolveNightResponse,
@@ -76,6 +77,17 @@ const ERROR_MESSAGES: Record<string, (code: string) => string> = {
   GAME_FINISHED: () => 'Igra je završena.',
   WRONG_PHASE: () => 'Ta faza igre je već završila.',
   DEAD_PLAYER: () => 'Više nisi u igri.',
+  GAME_IN_PROGRESS: () => 'Igra je u tijeku pa sobu ne možeš napustiti.',
+  GAME_NOT_STARTED: () => 'Igra još nije počela.',
+  NOT_IN_LOBBY: () => 'Nisi igrač u ovoj sobi.',
+  PLAYER_NOT_FOUND: () => 'Taj igrač više nije u sobi.',
+  INVALID_TOKEN: () => 'Tvoja prijava u sobu više ne vrijedi. Uđi ponovno.',
+  TOKEN_REQUIRED: () => 'Tvoja prijava u sobu više ne vrijedi. Uđi ponovno.',
+  VALIDATION_ERROR: () => 'Provjeri unesene podatke i pokušaj ponovno.',
+  ROLE_NOT_FOUND: () => 'Odabrana uloga ne postoji. Osvježi stranicu i pokušaj ponovno.',
+  ROLE_NOT_ASSIGNED: () => 'Uloge još nisu podijeljene.',
+  INVALID_ACTION: () => 'Taj potez sada nije moguć. Odaberi drugi.',
+  CANNOT_VOTE: () => 'Sada ne možeš glasati.',
   // noć (spec 6.6)
   NOT_YOUR_TURN: () => 'Još nije tvoj red. Pričekaj da te narator probudi.',
   ALREADY_ACTED: () => 'Već si odigrao potez ove noći.',
@@ -110,8 +122,17 @@ export const createLobby = (body: CreateLobbyRequest) =>
 
 export const getLobby = (code: string) => request<LobbyDetailsResponse>(lobbyPath(code))
 
-export const joinLobby = (code: string, nickname: string) =>
-  request<JoinLobbyResponse>(`${lobbyPath(code)}/join`, post({ nickname } satisfies JoinLobbyRequest))
+export const getPublicLobbies = () => request<PublicLobbyResponse[]>('/api/lobbies?public=true')
+
+export const joinLobby = (code: string, nickname: string, avatarEmoji: string) =>
+  request<JoinLobbyResponse>(
+    `${lobbyPath(code)}/join`,
+    post({ nickname, avatarEmoji } satisfies JoinLobbyRequest),
+  )
+
+// Samo u čekaonici; usred igre backend vraća GAME_IN_PROGRESS pa klijent izlazi samo lokalno
+export const leaveLobby = (code: string, { playerId, playerToken }: PlayerAuth) =>
+  request<void>(`${lobbyPath(code)}/leave`, post({ playerId, playerToken } satisfies HostActionRequest))
 
 // Samo domaćin; backend traži punu sobu
 export const startLobby = (code: string, { playerId, playerToken }: PlayerAuth) =>

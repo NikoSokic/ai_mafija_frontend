@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type {
   GameStateResponse,
   LobbyDetailsResponse,
+  LobbyMode,
   LobbyPlayerResponse,
   LobbyRoleResponse,
   LobbyStatus,
@@ -18,6 +19,11 @@ export interface Lobby {
   players: LobbyPlayerResponse[]
   /** sastav uloga koji je domaćin odabrao */
   roles: LobbyRoleResponse[]
+  /** domaćin je izvor istine za krunu; null kad domaćina nema */
+  hostPlayerId: number | null
+  mode: LobbyMode
+  isPublic: boolean
+  voiceEnabled: boolean
 }
 
 interface GameStore {
@@ -33,6 +39,10 @@ interface GameStore {
   /** ms koje treba dodati Date.now() da se dobije vrijeme poslužitelja (za rokove faza) */
   clockOffset: number
   connection: ConnectionStatus
+  /** id-ovi igrača koji su otišli; zakašnjeli GET ih ne smije vratiti */
+  leftIds: number[]
+  /** raste svaki put kad ovaj igrač postane domaćin (za obavijest) */
+  becameHost: number
 
   /** prazni stanje kad se otvori druga soba; za istu sobu ga ostavlja */
   reset: (code: string) => void
@@ -42,6 +52,8 @@ interface GameStore {
   setConnection: (status: ConnectionStatus) => void
   // događaji s /topic/lobby/{code}
   playerJoined: (player: LobbyPlayerResponse) => void
+  playerLeft: (playerId: number, newHostPlayerId: number | null, myId: number | null) => void
+  hostChanged: (hostPlayerId: number, myId: number | null) => void
   gameStarted: () => void
   gameStateChanged: (state: PublicGameStateResponse) => void
   gameFinished: (state: PublicGameStateResponse) => void
@@ -49,11 +61,12 @@ interface GameStore {
   voteResolved: (result: ResolveVoteResponse) => void
 }
 
-// Igrači se spajaju po id-u, a novi podaci zamjenjuju stare. Napuštanje sobe (PLAYER_LEFT) se još
-// ne obrađuje, pa zakašnjeli odgovor GET-a ne može izbrisati igrača koji je stigao događajem.
-function mergePlayers(current: LobbyPlayerResponse[], incoming: LobbyPlayerResponse[]) {
+// Igrači se spajaju po id-u, a novi podaci zamjenjuju stare, pa zakašnjeli odgovor GET-a ne može
+// izbrisati igrača koji je stigao događajem. Tko je otišao (PLAYER_LEFT), ne vraća se: id-ovi se ne ponavljaju.
+function mergePlayers(current: LobbyPlayerResponse[], incoming: LobbyPlayerResponse[], leftIds: number[]) {
   const byId = new Map(current.map((p) => [p.id, p]))
   for (const p of incoming) byId.set(p.id, p)
+  for (const id of leftIds) byId.delete(id)
   return [...byId.values()].sort((a, b) => a.id - b.id)
 }
 
@@ -77,7 +90,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     set({ publicState: state, clockOffset: offsetFrom(state.serverTime, get().clockOffset) })
     updateLobby((lobby) => ({
       status: state.lobbyStatus,
-      players: mergePlayers(lobby.players, state.players),
+      players: mergePlayers(lobby.players, state.players, get().leftIds),
     }))
   }
 
@@ -89,13 +102,16 @@ export const useGameStore = create<GameStore>((set, get) => {
     voteResult: null,
     clockOffset: 0,
     connection: 'connecting',
+    leftIds: [],
+    becameHost: 0,
 
     reset: (code) => {
       if (get().lobby?.code === code) return
-      set({ lobby: null, lobbyError: null, publicState: null, gameState: null, voteResult: null })
+      set({ lobby: null, lobbyError: null, publicState: null, gameState: null, voteResult: null, leftIds: [] })
     },
     setLobby: (details) => {
       const previous = get().lobby
+      const { leftIds } = get()
       set({
         lobbyError: null,
         lobby: {
@@ -103,10 +119,14 @@ export const useGameStore = create<GameStore>((set, get) => {
           status: details.status,
           maxPlayers: details.maxPlayers,
           roles: details.roles,
+          hostPlayerId: details.hostPlayerId,
+          mode: details.mode,
+          isPublic: details.isPublic,
+          voiceEnabled: details.voiceEnabled,
           players:
             previous?.code === details.code
-              ? mergePlayers(previous.players, details.players)
-              : mergePlayers([], details.players),
+              ? mergePlayers(previous.players, details.players, leftIds)
+              : mergePlayers([], details.players, leftIds),
         },
       })
     },
@@ -114,7 +134,21 @@ export const useGameStore = create<GameStore>((set, get) => {
     setGameState: (state) => set({ gameState: state, clockOffset: offsetFrom(state.serverTime, get().clockOffset) }),
     setConnection: (status) => set({ connection: status }),
 
-    playerJoined: (player) => updateLobby((lobby) => ({ players: mergePlayers(lobby.players, [player]) })),
+    playerJoined: (player) =>
+      updateLobby((lobby) => ({ players: mergePlayers(lobby.players, [player], get().leftIds) })),
+    playerLeft: (playerId, newHostPlayerId, myId) => {
+      set({ leftIds: [...get().leftIds, playerId] })
+      updateLobby((lobby) => ({ players: lobby.players.filter((p) => p.id !== playerId) }))
+      if (newHostPlayerId !== null) get().hostChanged(newHostPlayerId, myId)
+    },
+    hostChanged: (hostPlayerId, myId) => {
+      const wasMe = get().lobby?.hostPlayerId === myId
+      updateLobby((lobby) => ({
+        hostPlayerId,
+        players: lobby.players.map((p) => ({ ...p, host: p.id === hostPlayerId })),
+      }))
+      if (hostPlayerId === myId && !wasMe) set({ becameHost: get().becameHost + 1 })
+    },
     gameStarted: () => updateLobby(() => ({ status: 'IN_PROGRESS' })),
     gameStateChanged: applyPublicState,
     gameFinished: applyPublicState,

@@ -20,14 +20,15 @@ import Section from '../components/Section.tsx'
 import Skyline from '../components/Skyline.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
+import { isRoleKey, type RoleKey } from '../data/roles.ts'
 import { copyText } from '../lib/clipboard.ts'
 import { cx } from '../lib/cx.ts'
 import { EASE_SPRING, riseItem } from '../lib/motion.ts'
-import { playerEmoji, playerHue } from '../lib/playerLook.ts'
+import { avatarOf, playerHue } from '../lib/playerLook.ts'
+import { useHostNotice } from '../lib/useHostNotice.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore, type Lobby } from '../store/gameStore.ts'
 import { loadProfile, saveProfile } from '../store/profile.ts'
-import { DEFAULT_ROOM_SETTINGS, loadRoomSettings } from '../store/roomSettings.ts'
 import { clearSession, loadSession, saveSession, type Session } from '../store/session.ts'
 
 
@@ -151,15 +152,15 @@ type LobbyViewProps = {
 
 function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
   const navigate = useNavigate()
-  // Postavke postoje samo na uređaju koji je kreirao sobu; ostali vide zadane (docs/backend-todo.md)
-  const [settings] = useState(() => loadRoomSettings(lobby.code))
-  const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
   const [leaveOpen, setLeaveOpen] = useState(false)
-  const { mode, visibility, voice } = settings ?? DEFAULT_ROOM_SETTINGS
+  const becameHost = useGameStore((s) => s.becameHost)
+  const { toast, show } = useErrorToast()
+  useHostNotice(becameHost, show)
 
-  const { code, players, maxPlayers } = lobby
+  // Postavke sobe i sastav uloga dolaze iz backenda, pa ih vide svi igrači
+  const { code, players, maxPlayers, mode, isPublic, voiceEnabled, hostPlayerId: hostId } = lobby
+  const counts = roleCounts(lobby.roles)
   const meId = me?.session.playerId
-  const hostId = players.find((p) => p.host)?.id
   const amHost = meId !== undefined && meId === hostId
   const missing = Math.max(0, maxPlayers - players.length)
   const slots = Array.from({ length: maxPlayers }, (_, i) => ({ id: i }))
@@ -188,25 +189,21 @@ function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
             <InviteButton code={code} />
           </motion.div>
           <motion.div variants={riseItem} className="mt-3.5 flex flex-wrap justify-center gap-1.5">
-            <Chip icon={visibility === 'private' ? 'lock' : 'globe'}>
-              {visibility === 'private' ? 'Privatna' : 'Javna'}
+            <Chip icon={isPublic ? 'globe' : 'lock'}>{isPublic ? 'Javna' : 'Privatna'}</Chip>
+            <Chip icon={mode === 'LIVE' ? 'users' : 'globe'}>{mode === 'LIVE' ? 'Uživo' : 'Online'}</Chip>
+            <Chip icon={voiceEnabled ? 'volume' : 'mute'}>
+              {voiceEnabled ? 'Narator s glasom' : 'Narator bez glasa'}
             </Chip>
-            <Chip icon={mode === 'live' ? 'users' : 'globe'}>{mode === 'live' ? 'Uživo' : 'Online'}</Chip>
-            <Chip icon={voice ? 'volume' : 'mute'}>{voice ? 'Narator s glasom' : 'Narator bez glasa'}</Chip>
           </motion.div>
         </div>
 
         <Section title="Igrači" aside={`${players.length} od ${maxPlayers}`}>
-          <PlayerGrid players={players} vacant={missing} hostId={hostId} meId={meId} myEmoji={myEmoji} />
+          <PlayerGrid players={players} vacant={missing} hostId={hostId ?? undefined} meId={meId} />
           <p className="mt-2.5 text-[13px] leading-[1.45] text-muted">Svaki igrač pali jedno svjetlo u gradu.</p>
         </Section>
 
         <Section title="Uloge u igri">
-          {settings ? (
-            <RoleComposition counts={settings.counts} />
-          ) : (
-            <p className="text-[13px] leading-[1.45] text-muted">Domaćin je odabrao uloge za {maxPlayers} igrača.</p>
-          )}
+          <RoleComposition counts={counts} />
         </Section>
       </ScreenBody>
 
@@ -229,8 +226,16 @@ function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
         onClose={() => setLeaveOpen(false)}
         onLeft={() => navigate('/')}
       />
+      {toast}
     </Screen>
   )
+}
+
+// Sastav uloga iz backenda: ime uloge → broj igrača
+function roleCounts(roles: Lobby['roles']) {
+  const counts: Partial<Record<RoleKey, number>> = {}
+  for (const r of roles) if (isRoleKey(r.roleName)) counts[r.roleName] = r.count
+  return counts
 }
 
 type PlayerGridProps = {
@@ -238,12 +243,11 @@ type PlayerGridProps = {
   vacant: number
   hostId?: number
   meId?: number
-  myEmoji: string
 }
 
 // Mreža 2 stupca. Igrači koji su već u sobi pri otvaranju se ne animiraju (initial={false}),
 // a svaki novi uskoči spring animacijom na mjesto prvog praznog.
-function PlayerGrid({ players, vacant, hostId, meId, myEmoji }: PlayerGridProps) {
+function PlayerGrid({ players, vacant, hostId, meId }: PlayerGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2">
       <AnimatePresence initial={false}>
@@ -256,7 +260,7 @@ function PlayerGrid({ players, vacant, hostId, meId, myEmoji }: PlayerGridProps)
             className="flex min-h-[60px] items-center gap-2.5 rounded-tile border border-line bg-surface py-2 pr-2.5 pl-2"
           >
             <Avatar
-              emoji={p.id === meId ? myEmoji : playerEmoji(p.id)}
+              emoji={avatarOf(p)}
               hue={playerHue(p.id)}
               size={42}
               host={p.id === hostId}
@@ -390,10 +394,11 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
     setSending(true)
     setError(null)
     try {
-      const res = await joinLobby(lobby.code, nick)
+      const emoji = loadProfile()?.emoji || DEFAULT_EMOJI
+      const res = await joinLobby(lobby.code, nick, emoji)
       const session = { playerId: res.playerId, playerToken: res.playerToken, lobbyCode: res.lobbyCode }
       saveSession(session)
-      saveProfile({ nickname: nick, emoji: loadProfile()?.emoji || DEFAULT_EMOJI })
+      saveProfile({ nickname: nick, emoji })
       // odmah u popis; PLAYER_JOINED za istog igrača samo ga zamijeni
       useGameStore.getState().playerJoined({
         id: res.playerId,
@@ -403,6 +408,7 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
         eliminatedHow: null,
         eliminatedRound: null,
         roleName: null,
+        avatarEmoji: emoji,
       })
       onJoined(session)
     } catch (e) {

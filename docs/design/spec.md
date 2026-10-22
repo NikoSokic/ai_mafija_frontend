@@ -225,7 +225,7 @@ Sesija se sprema u `localStorage` kao `aimafija.session = { playerId, playerToke
 - Segmented filter: Sve / Uživo / Online. Ikona osvježavanja se zavrti.
 - Kartica sobe: avatar i nadimak domaćina, chipovi (način, "5 od 8"), gumb **Uđi** (puna soba: **Puna**, onemogućeno). Ispod: točke zauzetih mjesta + mini sastav uloga.
 - Prazno stanje: "Trenutno nema online soba" + gumb Kreiraj sobu.
-- Backend: **endpoint ne postoji** (vidi 10.3).
+- Backend: `GET /api/lobbies?public=true` → `[{code, hostNickname, hostAvatarEmoji, playerCount, maxPlayers, mode, createdAt}]` (samo čekaonice, najnovije prve). Popis se osvježava svakih 5 s dok je ekran otvoren. Lista ne vraća uloge, pa mini sastav uloga nije prikazan.
 
 ### 6.3 Nova soba
 - Broj igrača: veliki broj + stepper (4–20).
@@ -234,7 +234,7 @@ Sesija se sprema u `localStorage` kao `aimafija.session = { playerId, playerToke
 - Način igre: dvije kartice **Uživo** / **Online**. Tko može ući: **Samo s kodom** / **Svi (javna)**. Prekidač **Glas naratora** (opis ovisi o načinu).
 - Podnožje (fiksno): stanje zbroja — "Sve uloge su raspoređene" / "Fali još 2 uloge" + **Popuni građanima** / "Previše uloga: makni 1". **Kreiraj sobu** aktivno samo kad je zbroj = broj igrača.
 - Backend:
-  - `GET /api/test/roles` → `[{id, name, opis}]` (mapiraj po `name`)
+  - `GET /api/roles` → `[{id, name, opis}]` (mapiraj po `name`)
   - `POST /api/lobbies` `{hostNickname, maxPlayers, roles:[{roleId, count}]}` – šalji samo uloge s `count > 0`
   - odgovor `{lobbyId, code, status, maxPlayers, hostPlayerId, hostNickname, playerToken}` → spremi sesiju, idi na `/soba/:code`
 
@@ -242,13 +242,14 @@ Sesija se sprema u `localStorage` kao `aimafija.session = { playerId, playerToke
 - Kod sobe kao 6 pločica, **Kopiraj kod** (ikona se pretvori u kvačicu, "Kopirano") i **Pozovi** (Web Share API s linkom `/soba/:code`).
 - Chipovi: Privatna/Javna, Uživo/Online, Narator s glasom / bez glasa.
 - Igrači: mreža 2 stupca, "6 od 8". Domaćin ima krunu, ti oznaku "ti". Prazna mjesta: isprekidani rub, točka koja diše, "Čeka se igrač". Novi igrač ulazi spring animacijom i istovremeno pali svoj prozor u gradu. Ispod: "Svaki igrač pali jedno svjetlo u gradu."
-- Uloge u igri: puni sastav.
+- Uloge u igri: puni sastav, vide ga svi igrači (iz `roles` u odgovoru sobe).
 - Podnožje: domaćin – **Pokreni igru** (prije punog: onemogućeno, "Čeka se još 2"); ostali – "Igru pokreće domaćin kad se svi pridruže."
 - Backend:
-  - `GET /api/lobbies/{code}` → `{id, code, status, maxPlayers, phase, roundNumber, players:[{id, nickname, alive}]}`
-  - STOMP `SUBSCRIBE /topic/lobby/{code}` → `{type, message, lobbyCode, data}`; `PLAYER_JOINED` (data = igrač) → dodaj; `GAME_STARTED` → `/igra/:code`
+  - `GET /api/lobbies/{code}` → `{id, code, status, maxPlayers, phase, roundNumber, players:[{id, nickname, alive, host, avatarEmoji, …}], roles:[{roleId, roleName, count}], hostPlayerId, mode, isPublic, voiceEnabled}`
+  - STOMP `SUBSCRIBE /topic/lobby/{code}` → `{type, message, lobbyCode, data}`; `PLAYER_JOINED` (data = igrač) → dodaj; `PLAYER_LEFT {playerId, nickname, newHostPlayerId}` → makni igrača; `HOST_CHANGED {hostPlayerId}` → pomakni krunu (novi domaćin vidi Toast "Sad si ti domaćin."); `GAME_STARTED` → `/igra/:code`
   - `POST /api/lobbies/{code}/start` (backend traži punu sobu)
-  - ulazak kodom: `POST /api/lobbies/{code}/join {nickname}` → `{playerId, nickname, alive, lobbyId, lobbyCode, playerToken}`
+  - napuštanje: `POST /api/lobbies/{code}/leave {playerId, playerToken}`; usred igre 409 `GAME_IN_PROGRESS` pa klijent izlazi samo lokalno
+  - ulazak kodom: `POST /api/lobbies/{code}/join {nickname, avatarEmoji}` → `{playerId, nickname, alive, lobbyId, lobbyCode, playerToken}`
   - poruke grešaka backenda prevedi u UI: "Lobby ne postoji." → "Soba K7M2QZ ne postoji. Provjeri kod s domaćinom."; nadimak zauzet → "Netko u sobi već koristi taj nadimak."; puna → "Soba je puna."; započela → "Igra u toj sobi je već počela."
 
 ### 6.5 Otkrivanje uloge
@@ -377,11 +378,11 @@ Pronađeno čitanjem `ai_mafija_backend` (stanje commita od 29. 6. 2026.). Pored
    - `NARRATION {kind, text}`
    - privatni kanal za tim mafije (npr. `/topic/lobby/{code}/mafia` ili user destination) za odabir suigrača.
 2. **Bug – noć zapne kad je sva Mafija mrtva, a Dama živa.** Nakon glasanja `currentTurnRole` se postavlja na `"MAFIA"`. `isPlayersRoleCurrentTurn` za `MAFIA` prihvaća samo ulogu `Mafia`, pa Dama ne može odigrati, a nitko drugi nije na redu. Prijelaz na sljedeću ulogu događa se samo unutar `submitAction`, pa se noć ne pomakne. Prijedlog: pri postavljanju noći preskoči uloge bez živih igrača (`getNextAvailableNightRole` od početka) i za `MAFIA` potez prihvati Damu kad nema žive Mafije.
-3. **Postavke sobe i javne sobe.** `Lobby` nema `isPublic`, `mode` (LIVE/ONLINE) ni `voiceEnabled`; nema endpointa za popis javnih soba (`GET /api/lobbies?public=true&status=WAITING`).
-4. **Avatar.** `Player` nema `avatarEmoji`; dodati u `CreateLobbyRequest` (host), `JoinLobbyRequest` i `LobbyPlayerResponse`.
+3. ~~**Postavke sobe i javne sobe.**~~ Riješeno: `mode`, `isPublic`, `voiceEnabled` u sobi i `GET /api/lobbies?public=true`.
+4. ~~**Avatar.**~~ Riješeno: `avatarEmoji` (`hostAvatarEmoji` pri kreiranju) u zahtjevima i `LobbyPlayerResponse`.
 5. **Kraj igre.** Nema endpointa koji vraća uloge svih igrača nakon kraja (`GET /api/lobbies/{code}/summary`).
 6. **Suigrači mafije.** `PlayerRoleResponse` bi za tim mafije trebao vratiti i suigrače s ulogama.
-7. **Uloge.** Javni `GET /api/roles` umjesto `/api/test/roles`.
+7. ~~**Uloge.**~~ Riješeno: javni `GET /api/roles`.
 8. **Autorizacija.** `start`, `resolve-night` i `votes/resolve` ne traže token: bilo tko tko zna kod može pokrenuti ili obraditi igru. Dodati `playerToken` i provjeru domaćina.
 9. **AI narator.** U backendu još nema AI integracije. Prijedlog: servis koji iz događaja (`NIGHT_RESOLVED`, `VOTE_RESOLVED`…) generira kratki tekst i šalje ga kao `NARRATION`; TTS ostaje na klijentu.
 10. **Više mafijaša.** Kad mafija ima više članova, backend uzme prvi `KILL`. Prijedlog: zadnji odabir ili dogovor (svi moraju odabrati istu metu).

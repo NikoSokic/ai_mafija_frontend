@@ -177,7 +177,7 @@ export default function HomePage() {
       </Screen>
 
       <RulesSheet open={sheet === 'rules'} onClose={closeSheet} />
-      <JoinSheet open={sheet === 'join'} onClose={closeSheet} nickname={profile.nickname.trim()} />
+      <JoinSheet open={sheet === 'join'} onClose={closeSheet} nickname={profile.nickname.trim()} emoji={profile.emoji} />
       {session && (
         <LeaveRoomSheet
           open={sheet === 'leave'}

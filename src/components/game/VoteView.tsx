@@ -2,15 +2,13 @@ import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { describeError, resolveVote, submitVote } from '../../api/rest.ts'
 import type { PublicGameStateResponse, PublicVotingResponse } from '../../api/types.ts'
-import { DEFAULT_EMOJI } from '../../data/emojis.ts'
 import type { RoleKey } from '../../data/roles.ts'
 import { cx } from '../../lib/cx.ts'
 import { riseItem } from '../../lib/motion.ts'
-import { playerEmoji, playerHue } from '../../lib/playerLook.ts'
+import { avatarById, playerHue } from '../../lib/playerLook.ts'
 import { formatSeconds } from '../../lib/time.ts'
 import { useCountdown } from '../../lib/useCountdown.ts'
 import { useGameStore } from '../../store/gameStore.ts'
-import { loadProfile } from '../../store/profile.ts'
 import type { Session } from '../../store/session.ts'
 import Avatar from '../Avatar.tsx'
 import Banner from '../Banner.tsx'
@@ -61,7 +59,6 @@ function joinNames(names: string[]) {
 // Kad je glasanje obrađeno, igra odmah ide dalje, a ovaj ekran ostaje ispod overlaya izbacivanja:
 // zato prikazuje zadnje stanje dok je glasanje bilo otvoreno, a samo grad prati svježe stanje.
 export default function VoteView({ code, round, role, session, game, tieBreak, isHost, eliminatingId }: VoteViewProps) {
-  const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
   const [shownGame, setShownGame] = useState(game)
   if (game.voting && game !== shownGame) setShownGame(game)
   const closed = game.voting === null
@@ -87,11 +84,11 @@ export default function VoteView({ code, round, role, session, game, tieBreak, i
   const players = useMemo(() => [...shownGame.players].sort((a, b) => a.id - b.id), [shownGame.players])
   const livePlayers = useMemo(() => [...game.players].sort((a, b) => a.id - b.id), [game.players])
   const me = players.find((p) => p.id === meId)
-  const hostId = players.find((p) => p.host)?.id
+  const hostId = useGameStore((s) => s.lobby?.hostPlayerId)
   const silenced = shownGame.silencedPlayerIds
   const tied = voting.tiedPlayerIds
 
-  const emojiOf = (id: number) => (id === meId ? myEmoji : playerEmoji(id))
+  const emojiOf = (id: number) => avatarById(players, id)
   const nicknameOf = (id: number) => players.find((p) => p.id === id)?.nickname ?? '?'
   const choiceName = (c: Choice) => (c.target === null ? 'Suzdržan' : nicknameOf(c.target))
 

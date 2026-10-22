@@ -26,14 +26,22 @@ export type VoteResult = 'ELIMINATED' | 'TIE' | 'NO_ELIMINATION' | Winner
 
 // ---------- zahtjevi ----------
 
+/** Uživo = narator u sobi, Online = svatko na svom uređaju */
+export type LobbyMode = 'LIVE' | 'ONLINE'
+
 export interface CreateLobbyRequest {
   hostNickname: string
   maxPlayers: number
   roles: { roleId: number; count: number }[]
+  mode: LobbyMode
+  isPublic: boolean
+  voiceEnabled: boolean
+  hostAvatarEmoji: string
 }
 
 export interface JoinLobbyRequest {
   nickname: string
+  avatarEmoji: string
 }
 
 // HostActionRequest, PlayerRoleRequest i ReconnectRequest imaju isti oblik: tko je igrač i njegov token
@@ -91,6 +99,8 @@ export interface LobbyPlayerResponse {
   eliminatedRound: number | null
   /** uloga je javna tek kad igra završi */
   roleName: string | null
+  /** null kad igrač nije odabrao emoji */
+  avatarEmoji: string | null
 }
 
 /** Sastav uloga koji je domaćin odabrao */
@@ -109,6 +119,22 @@ export interface LobbyDetailsResponse {
   roundNumber: number | null
   players: LobbyPlayerResponse[]
   roles: LobbyRoleResponse[]
+  /** null kad domaćina nema */
+  hostPlayerId: number | null
+  mode: LobbyMode
+  isPublic: boolean
+  voiceEnabled: boolean
+}
+
+/** GET /api/lobbies?public=true – čekaonice javnih soba, najnovije prve */
+export interface PublicLobbyResponse {
+  code: string
+  hostNickname: string
+  hostAvatarEmoji: string | null
+  playerCount: number
+  maxPlayers: number
+  mode: LobbyMode
+  createdAt: string
 }
 
 export interface JoinLobbyResponse {
@@ -311,6 +337,10 @@ export interface PlayerLeftResponse {
   newHostPlayerId: number | null
 }
 
+export interface HostChangedResponse {
+  hostPlayerId: number
+}
+
 /** `code` je stabilan (backend exception/ErrorCode.java), `message` je tekst za ljude */
 export interface ApiErrorResponse {
   timestamp: string
@@ -333,6 +363,7 @@ type LobbyEventOf<T extends string, D> = {
 export type LobbyEvent =
   | LobbyEventOf<'PLAYER_JOINED', LobbyPlayerResponse>
   | LobbyEventOf<'PLAYER_LEFT', PlayerLeftResponse>
+  | LobbyEventOf<'HOST_CHANGED', HostChangedResponse>
   | LobbyEventOf<'GAME_STARTED', null>
   | LobbyEventOf<'GAME_STATE_CHANGED', PublicGameStateResponse>
   | LobbyEventOf<'NIGHT_RESOLVED', ResolveNightResponse>

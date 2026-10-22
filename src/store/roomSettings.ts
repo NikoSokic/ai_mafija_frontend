@@ -2,8 +2,8 @@ import type { RoleCounts } from '../data/recommendedRoles.ts'
 
 const KEY = 'aimafija.room'
 
-// Postavke sobe koje backend još ne prima ni ne vraća (docs/backend-todo.md).
-// Domaćin ih spremi pri kreiranju, a lobby ih prikazuje; gosti vide zadane vrijednosti.
+// Zadnje postavke nove sobe; backend ih čuva i vraća, ovdje služe samo kao predložak (Nova soba s istim postavkama).
+// Domaćin ih spremi pri kreiranju; lobby i igra čitaju postavke iz backenda.
 export type Mode = 'live' | 'online'
 export type Visibility = 'private' | 'public'
 

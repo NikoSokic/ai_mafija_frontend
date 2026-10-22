@@ -1,14 +1,13 @@
 import { motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import type { LobbyPlayerResponse, Winner } from '../../api/types.ts'
-import { DEFAULT_EMOJI } from '../../data/emojis.ts'
 import { isRoleKey, ROLES, type RoleKey, type Team } from '../../data/roles.ts'
 import { EASE_SPRING, riseItem } from '../../lib/motion.ts'
-import { playerEmoji, playerHue } from '../../lib/playerLook.ts'
+import { avatarById, playerHue } from '../../lib/playerLook.ts'
 import { clearNotes } from '../../store/notes.ts'
-import { loadProfile } from '../../store/profile.ts'
 import { clearSeenRole } from '../../store/seenRole.ts'
+import { leaveLobby } from '../../api/rest.ts'
 import { clearSession, type Session } from '../../store/session.ts'
 import Avatar from '../Avatar.tsx'
 import Button from '../Button.tsx'
@@ -43,7 +42,6 @@ const GROUPS: { team: Team; label: string; color: string }[] = [
 export default function EndView({ code, session, players, winner, round, myRole, isHost }: EndViewProps) {
   const navigate = useNavigate()
   const particles = useRef<ParticlesHandle>(null)
-  const [myEmoji] = useState(() => loadProfile()?.emoji || DEFAULT_EMOJI)
   const mafiaWin = winner === 'MAFIA_WIN'
   const title = winner ? (mafiaWin ? 'Mafija pobjeđuje' : 'Građani pobjeđuju') : 'Kraj igre'
   const sentence = !winner
@@ -60,7 +58,7 @@ export default function EndView({ code, session, players, winner, round, myRole,
   const meId = session.playerId
   const sorted = useMemo(() => [...players].sort((a, b) => a.id - b.id), [players])
 
-  const emojiOf = (id: number) => (id === meId ? myEmoji : playerEmoji(id))
+  const emojiOf = (id: number) => avatarById(players, id)
   // Uloga iz javnog popisa; za sebe rezervno iz privatnog stanja
   const roleOf = (p: LobbyPlayerResponse): RoleKey | null => {
     const name = p.roleName ?? (p.id === meId ? myRole : null)
@@ -68,7 +66,9 @@ export default function EndView({ code, session, players, winner, round, myRole,
   }
   const unknown = sorted.filter((p) => !roleOf(p))
 
+  // Backendu se javlja bez čekanja; ako ne uspije, soba svejedno ostaje iza igrača
   function leaveRoom() {
+    leaveLobby(code, session).catch(() => {})
     clearSession()
     clearSeenRole(code)
     clearNotes(code)

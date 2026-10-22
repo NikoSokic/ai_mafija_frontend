@@ -15,10 +15,12 @@ type JoinSheetProps = {
   onClose: () => void
   /** nadimak iz profila, Početna ga provjeri prije otvaranja */
   nickname: string
+  /** avatar iz profila */
+  emoji: string
 }
 
 // "Uđi s kodom" na Početnoj. Sadržaj se montira pri svakom otvaranju, pa kreće prazan.
-export default function JoinSheet({ open, onClose, nickname }: JoinSheetProps) {
+export default function JoinSheet({ open, onClose, nickname, emoji }: JoinSheetProps) {
   return (
     <Sheet
       open={open}
@@ -26,12 +28,12 @@ export default function JoinSheet({ open, onClose, nickname }: JoinSheetProps) {
       title="Uđi s kodom"
       subtitle="Upiši šesteroznamenkasti kod koji ti je poslao domaćin."
     >
-      <JoinCodeForm nickname={nickname} />
+      <JoinCodeForm nickname={nickname} emoji={emoji} />
     </Sheet>
   )
 }
 
-function JoinCodeForm({ nickname }: { nickname: string }) {
+function JoinCodeForm({ nickname, emoji }: { nickname: string; emoji: string }) {
   const navigate = useNavigate()
   const [chars, setChars] = useState(emptyCode)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +54,7 @@ function JoinCodeForm({ nickname }: { nickname: string }) {
     setSending(true)
     setError(null)
     try {
-      const res = await joinLobby(code, nickname)
+      const res = await joinLobby(code, nickname, emoji)
       saveSession({ playerId: res.playerId, playerToken: res.playerToken, lobbyCode: res.lobbyCode })
       navigate(`/soba/${res.lobbyCode}`)
     } catch (e) {
