@@ -13,7 +13,8 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 
 ## Noć
 
-- Prva noć počinje pauzom od 30 s (igrači gledaju kartu uloge), ostale pauzom od 10 s (prijelaz i naracija).
+- Prva noć počinje uvodom u kojem igrači gledaju kartu uloge i drže "Spreman sam". Prvi potez počinje čim su spremni svi živi igrači. Domaćin može krenuti i ranije ("Počni noć bez čekanja"), a najkasnije uvod završava nakon 90 s, da igra ne zapne ako netko zatvori aplikaciju.
+- Ostale noći počinju pauzom od 10 s (prijelaz i naracija).
 - Redoslijed: Mafija → Dama → Doktor → Policajac → Novinar. Uloge kojih u igri nema se preskaču.
 - Narator na početku noći kaže svima da zatvore oči, a zatim budi uloge iz sastava redom (Mafija, Dama, Doktor, Policajac, Novinar). Na prijelazu uspava prethodnu ulogu i budi sljedeću ("Mafijo, zatvorite oči. Dama, otvori oči…"); zadnju uspava na početku jutra.
 - Svaki potez traje **uvijek** 26 s: 6 s naracije + 20 s za odabir. Tko odigra ranije, čeka ("Potez je poslan"). Tko ne odigra, gubi potez. Mafija smije mijenjati metu do isteka roka.
@@ -51,9 +52,17 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 
 - U lobbyju: igrač se briše iz sobe. Ako ode domaćin, domaćin postaje igrač koji je najranije ušao. Prazna soba se briše.
 - Tijekom igre: igrač ispada (`LEFT`), uloga ostaje tajna, provjerava se pobjednik. Više ga se ne čeka ni noću ni na glasanju.
-- U oba slučaja igrač gubi token i ne može se vratiti tom prijavom.
+- Nakon kraja igre: igrač napušta sobu ("Na početnu"); ako ode domaćin, domaćin postaje igrač koji je najranije ušao.
+- U svim slučajevima igrač gubi token i ne može se vratiti tom prijavom.
 
 ## Kraj igre
 
 - Uloge svih igrača postaju javne tek kad igra završi (`roleName` u popisu igrača).
 - Za svakog igrača zna se kako je ispao (`NIGHT`, `VOTE`, `LEFT`) i u kojoj rundi.
+
+## Igraj ponovno
+
+- Na kraju igre domaćin može vratiti istu sobu u čekaonicu ("Igraj ponovno"). Ostali igrači dotad vide "Čekamo domaćina…" ili odlaze na Početnu.
+- Kod sobe, sastav uloga i postavke (način, javnost, glas naratora) ostaju.
+- Igrači koji su ostali vraćaju se u čekaonicu živi i bez uloge. Tko je izašao tijekom ili nakon igre, briše se iz sobe; prazna mjesta mogu popuniti novi igrači.
+- Nova igra počinje kao i prva: domaćin je pokreće kad je soba puna, a uloge se dijele iznova.

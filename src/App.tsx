@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage.tsx'
 import LobbyPage from './pages/LobbyPage.tsx'
 import PublicRoomsPage from './pages/PublicRoomsPage.tsx'
 import { resumeSession, roomPath } from './store/resume.ts'
+import { wakeServer, whenServerReady } from './store/server.ts'
 
 // Galerija komponenti samo u dev načinu – ne ulazi u produkcijski build
 const DevPage = import.meta.env.DEV ? lazy(() => import('./pages/DevPage.tsx')) : null
@@ -49,7 +50,9 @@ function SessionResume() {
 
   useEffect(() => {
     let active = true
-    void resumeSession(pathRef.current === '/').then((target) => {
+    void wakeServer()
+    // hladni server ne provjeravamo prije nego odgovori na /api/health
+    void whenServerReady().then(() => resumeSession(pathRef.current === '/')).then((target) => {
       if (!active || handled.current) return
       handled.current = true
       // igrač je za vrijeme provjere možda već otišao s Početne

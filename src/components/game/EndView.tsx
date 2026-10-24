@@ -1,17 +1,19 @@
 import { motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { describeError, leaveLobby, rematchLobby } from '../../api/rest.ts'
 import type { LobbyPlayerResponse, Winner } from '../../api/types.ts'
 import { isRoleKey, ROLES, type RoleKey, type Team } from '../../data/roles.ts'
 import { EASE_SPRING, riseItem } from '../../lib/motion.ts'
 import { avatarById, playerHue } from '../../lib/playerLook.ts'
+import { useGameStore } from '../../store/gameStore.ts'
+import { clearNarrated } from '../../store/narrated.ts'
 import { clearNotes } from '../../store/notes.ts'
-import { clearSeenRole } from '../../store/seenRole.ts'
-import { leaveLobby } from '../../api/rest.ts'
 import { clearSession, type Session } from '../../store/session.ts'
 import Avatar from '../Avatar.tsx'
 import Button from '../Button.tsx'
 import Chip from '../Chip.tsx'
+import { useErrorToast } from '../ErrorToast.tsx'
 import IconButton from '../IconButton.tsx'
 import MeTag from '../MeTag.tsx'
 import Particles, { type ParticlesHandle } from '../Particles.tsx'
@@ -38,10 +40,12 @@ const GROUPS: { team: Team; label: string; color: string }[] = [
 ]
 
 // Kraj igre (spec 6.9): pobjednik, konfeti, naslov slovo po slovo i popis igrača sa sudbinom.
-// Backend nema "igraj ponovno" (docs/backend-todo.md), pa domaćin otvara novu sobu s istim postavkama.
+// "Igraj ponovno" vraća istu sobu u čekaonicu; ostali čekaju domaćina ili odlaze.
 export default function EndView({ code, session, players, winner, round, myRole, isHost }: EndViewProps) {
   const navigate = useNavigate()
   const particles = useRef<ParticlesHandle>(null)
+  const [restarting, setRestarting] = useState(false)
+  const { toast, show } = useErrorToast()
   const mafiaWin = winner === 'MAFIA_WIN'
   const title = winner ? (mafiaWin ? 'Mafija pobjeđuje' : 'Građani pobjeđuju') : 'Kraj igre'
   const sentence = !winner
@@ -66,23 +70,26 @@ export default function EndView({ code, session, players, winner, round, myRole,
   }
   const unknown = sorted.filter((p) => !roleOf(p))
 
-  // Backendu se javlja bez čekanja; ako ne uspije, soba svejedno ostaje iza igrača
-  function leaveRoom() {
+  // Backendu se javlja bez čekanja; ako ne uspije, soba svejedno ostaje iza igrača.
+  // Naracije se brišu i ovdje, jer igrač u istom tabu može opet ući u ovu sobu za iduću igru.
+  function goHome() {
     leaveLobby(code, session).catch(() => {})
     clearSession()
-    clearSeenRole(code)
     clearNotes(code)
-  }
-
-  function goHome() {
-    leaveRoom()
+    clearNarrated(code)
     navigate('/', { replace: true })
   }
 
-  // Postavke stare sobe (aimafija.room) ostaju, pa ih /nova može pročitati
-  function newRoom() {
-    leaveRoom()
-    navigate('/nova', { state: { from: code } })
+  // Ne čeka se REMATCH: soba je u čekaonici čim backend odgovori, pa GameScreen odmah vodi u lobby
+  async function playAgain() {
+    setRestarting(true)
+    try {
+      await rematchLobby(code, session)
+      useGameStore.getState().clearGame(code)
+    } catch (e) {
+      show('Nova igra nije pokrenuta', describeError(e, code))
+      setRestarting(false)
+    }
   }
 
   return (
@@ -131,15 +138,24 @@ export default function EndView({ code, session, players, winner, round, myRole,
       <ScreenFooter rise className="bg-sky">
         {isHost ? (
           <>
-            <Button onClick={newRoom}>Nova soba s istim postavkama</Button>
+            <Button disabled={restarting} onClick={playAgain}>
+              {restarting ? 'Pokrećem novu igru…' : 'Igraj ponovno'}
+            </Button>
             <Button variant="ghost" onClick={goHome}>
               Na početnu
             </Button>
           </>
         ) : (
-          <Button onClick={goHome}>Na početnu</Button>
+          <>
+            <p role="status" className="flex items-center justify-center gap-2 pt-1 text-center text-sm text-muted">
+              <span aria-hidden="true" className="size-1.5 animate-breathe rounded-full bg-muted" />
+              Čekamo domaćina…
+            </p>
+            <Button onClick={goHome}>Na početnu</Button>
+          </>
         )}
       </ScreenFooter>
+      {toast}
     </Screen>
   )
 }

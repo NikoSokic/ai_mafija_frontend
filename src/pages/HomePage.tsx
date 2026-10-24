@@ -11,11 +11,13 @@ import RulesSheet from '../components/RulesSheet.tsx'
 import { Screen, ScreenBody, ScreenFooter, ScreenTop } from '../components/Screen.tsx'
 import Skyline from '../components/Skyline.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
+import { Spinner } from '../components/Toast.tsx'
 import { DEFAULT_EMOJI, EMOJIS } from '../data/emojis.ts'
 import { cx } from '../lib/cx.ts'
 import { EASE_OUT, riseItem } from '../lib/motion.ts'
 import { loadProfile, saveProfile, type Profile } from '../store/profile.ts'
 import { roomPath, useResumeStore } from '../store/resume.ts'
+import { retryWake, useServerStore } from '../store/server.ts'
 import { loadSession, type Session } from '../store/session.ts'
 
 // Ukrasni grad: 8 prozora, upaljeni kao u prototipu
@@ -39,6 +41,8 @@ export default function HomePage() {
   const [session, setSession] = useState(loadSession)
   // Kartica čeka provjeru pri pokretanju, da ne bljesne prije automatskog ulaska u sobu
   const resumeDone = useResumeStore((s) => s.status === 'done')
+  const serverStatus = useServerStore((s) => s.status)
+  const serverReady = serverStatus === 'ready'
   const nickRef = useRef<HTMLInputElement>(null)
   const gridId = useId()
   const errorId = useId()
@@ -159,17 +163,41 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {resumeDone && session && <ResumeCard session={session} onLeave={() => setSheet('leave')} />}
+          {!serverReady && (
+            <motion.div
+              variants={riseItem}
+              role="status"
+              className="mt-6 flex items-center gap-3 rounded-card border border-line bg-surface p-4"
+            >
+              {serverStatus === 'waking' ? (
+                <>
+                  <Spinner />
+                  <p className="animate-breathe text-[15px] font-medium">Budim server…</p>
+                </>
+              ) : (
+                <>
+                  <p className="flex-1 text-[15px] text-muted">Server se ne javlja.</p>
+                  <Button size="sm" onClick={retryWake}>
+                    Pokušaj ponovno
+                  </Button>
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {resumeDone && session &&<ResumeCard session={session} onLeave={() => setSheet('leave')} />}
         </ScreenBody>
 
         <Skyline players={CITY} stateOf={(_, i) => (CITY_ON.includes(i) ? 'on' : 'off')} />
         <ScreenFooter rise className="bg-sky">
-          <Button onClick={() => requireNickname() && navigate('/nova')}>Kreiraj sobu</Button>
+          <Button disabled={!serverReady} onClick={() => requireNickname() && navigate('/nova')}>
+            Kreiraj sobu
+          </Button>
           <div className="grid grid-cols-2 gap-2.5">
-            <Button variant="secondary" onClick={() => requireNickname() && setSheet('join')}>
+            <Button variant="secondary" disabled={!serverReady} onClick={() => requireNickname() && setSheet('join')}>
               Uđi s kodom
             </Button>
-            <Button variant="ghost" onClick={() => navigate('/sobe')}>
+            <Button variant="ghost" disabled={!serverReady} onClick={() => navigate('/sobe')}>
               Javne sobe
             </Button>
           </div>

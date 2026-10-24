@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { retryConnections } from '../lib/stomp.ts'
 import { useGameStore } from '../store/gameStore.ts'
 import { Icon } from './icons.tsx'
 import Toast, { Spinner } from './Toast.tsx'
@@ -13,6 +14,17 @@ export default function ConnectionToast() {
     if (connection === 'disconnected') setToast('lost')
     else if (connection === 'connected' && toast === 'lost') setToast('back')
   }
+
+  // Render server koji spava može se buditi do ~50 s; nakon 90 s nudi se ručno ponavljanje
+  const [gaveUp, setGaveUp] = useState(false)
+  useEffect(() => {
+    if (toast !== 'lost') return
+    const t = window.setTimeout(() => setGaveUp(true), 90_000)
+    return () => {
+      clearTimeout(t)
+      setGaveUp(false)
+    }
+  }, [toast])
 
   const back = toast === 'back'
   return (
@@ -29,8 +41,11 @@ export default function ConnectionToast() {
           <Spinner />
         )
       }
+      action={!back && gaveUp ? { label: 'Pokušaj ponovno', onClick: retryConnections } : undefined}
       title={back ? 'Ponovno si u igri' : 'Veza je prekinuta'}
-      text={back ? 'Ništa nisi propustio.' : 'Spajam te ponovno u igru…'}
+      text={
+        back ? 'Ništa nisi propustio.' : gaveUp ? 'Server se ne javlja.' : 'Budim server i spajam te ponovno…'
+      }
     />
   )
 }

@@ -10,13 +10,15 @@ type ToastProps = {
   text?: ReactNode
   /** lijevo od teksta: Spinner, ikona ili RoleIcon */
   leading?: ReactNode
+  /** gumb u obavijesti, npr. "Pokušaj ponovno" */
+  action?: { label: string; onClick: () => void }
   /** ms do automatskog zatvaranja (poziva onClose) */
   duration?: number
   onClose?: () => void
 }
 
 // Obavijest na vrhu – ponovno spajanje, brzi pogled na ulogu
-export default function Toast({ open, title, text, leading, duration, onClose }: ToastProps) {
+export default function Toast({ open, title, text, leading, action, duration, onClose }: ToastProps) {
   // ref da novi onClose iz roditelja ne pokreće odbrojavanje ispočetka
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -46,6 +48,15 @@ export default function Toast({ open, title, text, leading, duration, onClose }:
                 <h4 className="text-[15px] font-semibold">{title}</h4>
                 {text && <p className="text-[13px] text-muted">{text}</p>}
               </div>
+              {action && (
+                <button
+                  type="button"
+                  onClick={action.onClick}
+                  className="shrink-0 cursor-pointer rounded-full bg-accent-soft px-3.5 py-2 text-[13px] font-semibold text-accent"
+                >
+                  {action.label}
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

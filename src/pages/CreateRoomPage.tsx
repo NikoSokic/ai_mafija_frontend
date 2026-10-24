@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { createLobby, describeError, getRoles } from '../api/rest.ts'
 import type { Role } from '../api/types.ts'
 import Button from '../components/Button.tsx'
@@ -22,13 +22,7 @@ import { riseItem } from '../lib/motion.ts'
 import { useBump } from '../lib/useBump.ts'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { loadProfile } from '../store/profile.ts'
-import {
-  DEFAULT_ROOM_SETTINGS,
-  loadRoomSettings,
-  saveRoomSettings,
-  type Mode,
-  type Visibility,
-} from '../store/roomSettings.ts'
+import { DEFAULT_ROOM_SETTINGS, type Mode, type Visibility } from '../store/roomSettings.ts'
 import { saveSession } from '../store/session.ts'
 
 const MIN_PLAYERS = 4
@@ -60,32 +54,17 @@ export default function CreateRoomPage() {
   return <CreateRoomForm hostNickname={nickname} />
 }
 
-// Postavke sobe iz koje domaćin dolazi s kraja igre ("Nova soba s istim postavkama")
-function previousSettings(state: unknown) {
-  const from = (state as { from?: unknown } | null)?.from
-  return typeof from === 'string' ? loadRoomSettings(from) : null
-}
-
 function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
   const navigate = useNavigate()
-  const { state } = useLocation()
-  const [previous] = useState(() => previousSettings(state))
   const [roles, setRoles] = useState<RolesState>({ status: 'loading' })
   const [rolesRequest, setRolesRequest] = useState(0)
-  const [maxPlayers, setMaxPlayers] = useState(() =>
-    previous ? ROLE_KEYS.reduce((sum, key) => sum + previous.counts[key], 0) : DEFAULT_MAX_PLAYERS,
-  )
+  const [maxPlayers, setMaxPlayers] = useState(DEFAULT_MAX_PLAYERS)
   // Dok je true, uloge prate broj igrača po preporuci; ručna izmjena uloge to isključuje
-  const [followRecommended, setFollowRecommended] = useState(
-    () => !previous || sameCounts(previous.counts, recommendedCounts(maxPlayers)),
-  )
-  const [manualCounts, setManualCounts] = useState(
-    () => previous?.counts ?? recommendedCounts(DEFAULT_MAX_PLAYERS),
-  )
-  // Zadnje postavke se pamte lokalno (aimafija.room) samo kao predložak za novu sobu
-  const [mode, setMode] = useState<Mode>(previous?.mode ?? DEFAULT_ROOM_SETTINGS.mode)
-  const [visibility, setVisibility] = useState<Visibility>(previous?.visibility ?? DEFAULT_ROOM_SETTINGS.visibility)
-  const [voice, setVoice] = useState(previous?.voice ?? DEFAULT_ROOM_SETTINGS.voice)
+  const [followRecommended, setFollowRecommended] = useState(true)
+  const [manualCounts, setManualCounts] = useState(() => recommendedCounts(DEFAULT_MAX_PLAYERS))
+  const [mode, setMode] = useState<Mode>(DEFAULT_ROOM_SETTINGS.mode)
+  const [visibility, setVisibility] = useState<Visibility>(DEFAULT_ROOM_SETTINGS.visibility)
+  const [voice, setVoice] = useState(DEFAULT_ROOM_SETTINGS.voice)
   const { toast, show } = useErrorToast()
   const [sending, setSending] = useState(false)
 
@@ -148,7 +127,6 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
         playerToken: res.playerToken,
         lobbyCode: res.code,
       })
-      saveRoomSettings({ code: res.code, counts, mode, visibility, voice })
       navigate(`/soba/${res.code}`)
     } catch (e) {
       show('Soba nije kreirana', describeError(e))

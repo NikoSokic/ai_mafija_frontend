@@ -26,11 +26,12 @@ function joinNames(names: string[]) {
   return names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} i ${names[names.length - 1]}`
 }
 
+/** uvod prve noći: igrač je spreman, a čeka se da i ostali pogledaju svoje uloge */
 export function startNarration(): Narration {
   return {
     key: 'start',
     label: 'Početak igre',
-    text: 'Dobro došli u grad. Svatko od vas krije tajnu. Noć pada i svi zatvaraju oči.',
+    text: 'Dobro došli u grad. Svatko od vas krije tajnu. Pogledajte svoje uloge i čuvajte ih za sebe. Noć pada čim svi budu spremni.',
   }
 }
 

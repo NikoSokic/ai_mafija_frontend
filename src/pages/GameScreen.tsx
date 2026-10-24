@@ -1,7 +1,7 @@
 import { AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router'
-import { ApiError, describeError, getGameState } from '../api/rest.ts'
+import { ApiError, describeError, getGameState, markReady } from '../api/rest.ts'
 import type { GameStateResponse, PublicGameStateResponse, ResolveVoteResponse, Winner } from '../api/types.ts'
 import Button from '../components/Button.tsx'
 import ConnectionToast from '../components/ConnectionToast.tsx'
@@ -35,7 +35,6 @@ import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore } from '../store/gameStore.ts'
 import { loadNarrated, markNarrated } from '../store/narrated.ts'
 import type { Mode } from '../store/roomSettings.ts'
-import { hasSeenRole, markRoleSeen } from '../store/seenRole.ts'
 import { clearSession, loadSession, type Session } from '../store/session.ts'
 
 type View = 'role' | 'night' | 'day' | 'vote' | 'end'
@@ -91,6 +90,8 @@ function publicOf(state: GameStateResponse): PublicGameStateResponse {
     silencedPlayerIds: state.silencedPlayerIds,
     nightKilledPlayerIds: state.nightKilledPlayerIds,
     currentTurnRole: state.currentTurnRole,
+    lastNight: state.lastNight,
+    readyPlayerIds: state.readyPlayerIds,
     voting: voting.votingOpen
       ? { eligibleVoterIds: voting.eligibleVoterIds, votes: voting.votes, tiedPlayerIds: voting.tiedPlayerIds }
       : null,
@@ -164,7 +165,6 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   // zadnje poznato javno stanje igre, iz GET /game-state ili iz događaja GAME_STATE_CHANGED
   const [snap, setSnap] = useState<PublicGameStateResponse | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [seen, setSeen] = useState(() => hasSeenRole(code))
   const [shown, setShown] = useState<Shown | null>(null)
   const [transition, setTransition] = useState<{ kind: 'night' | 'day'; title: string } | null>(null)
   // noć ostaje na ekranu dok igrač gleda rezultat istrage / usporedbe
@@ -177,8 +177,8 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   // glas naratora je postavka sobe iz backenda; igrač ga može ugasiti samo za sebe
   const [voiceChoice, setVoiceChoice] = useState<boolean | null>(null)
   const voiceOn = voiceChoice ?? lobby?.voiceEnabled ?? true
-  // pritisnuo je Spreman sam, a naracija početka igre još traje
-  const [ready, setReady] = useState(false)
+  // poslao je "Spreman sam"; dok backend to ne potvrdi u readyPlayerIds, čekanje se već prikazuje
+  const [readySent, setReadySent] = useState(false)
   const requestId = useRef(0)
   const { toast: errorToast, show: showError } = useErrorToast()
   useHostNotice(becameHost, showError)
@@ -237,17 +237,21 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const roleName = gameState?.currentPlayer.role ?? null
   const role: RoleKey | null = roleName && roleName in ROLES ? (roleName as RoleKey) : null
 
+  // readyPlayerIds postoji samo u uvodu prve noći, dok igrači gledaju uloge
+  const readyIds = snap?.readyPlayerIds ?? null
+  const ready = readySent || !!readyIds?.includes(session.playerId)
+
   const target = useMemo<Shown | null>(() => {
     if (!snap || !snap.phase) return null
     const { phase, winner } = snap
     const round = snap.roundNumber ?? 1
     if (phase === 'FINISHED') return { view: 'end', round, tieBreak: false, winner }
-    if (!seen) return { view: 'role', round, tieBreak: false, winner: null }
+    if (snap.readyPlayerIds) return { view: 'role', round, tieBreak: false, winner: null }
     if (phase === 'NIGHT') return { view: 'night', round, tieBreak: false, winner: null }
     if (phase === 'DAY') return { view: 'day', round, tieBreak: false, winner: null }
     // izjednačenje nema raspravu, odmah se glasa ponovno (spec 6.8)
     return { view: 'vote', round, tieBreak: phase === 'TIE_BREAK', winner: null }
-  }, [snap, seen])
+  }, [snap])
 
   // Callbackovi prijelaza uvijek vide najnoviju metu, ne onu s početka prijelaza
   const targetRef = useRef(target)
@@ -281,19 +285,28 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     }
   }
 
-  function finishReady() {
-    markRoleSeen(code)
-    setSeen(true)
-  }
-
-  // Prije prve noći narator pozdravi grad (prototip); nakon osvježavanja se to ne ponavlja
+  // Čekanje se prikaže odmah; ako uvod više ne traje (WRONG_PHASE), ekran samo dohvati novo stanje
   function handleReady() {
-    if (narrated.includes(startNarration().key)) finishReady()
-    else setReady(true)
+    setReadySent(true)
+    markReady(code, session).catch((e: unknown) => {
+      if (e instanceof ApiError && e.code === 'WRONG_PHASE') {
+        refresh()
+        return
+      }
+      setReadySent(false)
+      showError('Spremnost nije poslana', describeError(e, code))
+    })
   }
 
-  // Igra još nije počela ili soba ne postoji – to pokazuje lobby
-  if (snap?.lobbyStatus === 'WAITING' || lobbyError) return <Navigate to={`/soba/${code}`} replace />
+  // Soba je opet u čekaonici, a REMATCH je možda propušten (npr. dok veza nije radila)
+  const waiting = snap?.lobbyStatus === 'WAITING'
+  useEffect(() => {
+    if (waiting) useGameStore.getState().clearGame(code)
+  }, [waiting, code])
+
+  // Igra još nije počela, soba ne postoji ili je domaćin pokrenuo novu igru (REMATCH) – to pokazuje lobby
+  const rematched = snap?.lobbyStatus === 'FINISHED' && lobby?.code === code && lobby.status === 'WAITING'
+  if (waiting || rematched || lobbyError) return <Navigate to={`/soba/${code}`} replace />
 
   const theme: Theme = shown ? themeOf(shown) : 'night'
   const mode: Mode = lobby?.mode === 'ONLINE' ? 'online' : 'live'
@@ -315,7 +328,6 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     if (!narration) return
     markNarrated(code, narration.key)
     setNarrated((keys) => [...keys, narration.key])
-    if (narration.key === startNarration().key) finishReady()
     if (currentOutcome?.kind === 'farewell') setOutcome(null)
   }
 
@@ -336,6 +348,11 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
           mode={mode}
           teammates={gameState?.currentPlayer.teammates ?? []}
           players={snap?.players ?? []}
+          code={code}
+          session={session}
+          isHost={isHost}
+          ready={ready}
+          readyPlayerIds={readyIds ?? []}
           onReady={handleReady}
         />
       )

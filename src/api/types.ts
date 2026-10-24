@@ -258,6 +258,23 @@ export interface CurrentPlayerGameStateResponse {
   teammates: TeammateResponse[]
   /** samo za tim mafije tijekom noći */
   teamTargets: TeamTargetResponse[]
+  /** null dok je igrač živ */
+  eliminatedHow: EliminatedHow | null
+  eliminatedRound: number | null
+}
+
+/** Rezultat zadnje noći; javan tijekom dana (DAY, VOTING, TIE_BREAK) te runde */
+export interface LastNightResponse {
+  roundNumber: number
+  killedPlayerIds: number[]
+  silencedPlayerIds: number[]
+}
+
+/** POST /api/lobbies/{code}/ready i događaj PLAYER_READY; readyTotal = živi igrači */
+export interface PlayerReadyResponse {
+  playerId: number
+  readyCount: number
+  readyTotal: number
 }
 
 /** Jedan glas; targetPlayerId je null za "Suzdržan" */
@@ -307,6 +324,10 @@ export interface GameStateResponse {
   nightKilledPlayerIds: number[]
   /** koja je uloga noću budna (MAFIA, DAMA, Doktor, Policajac, Novinar); null u uvodu noći i danju */
   currentTurnRole: string | null
+  /** danju rezultat zadnje noći; noću i na kraju igre null */
+  lastNight: LastNightResponse | null
+  /** tko je javio "Spreman sam"; null izvan uvoda prve noći */
+  readyPlayerIds: number[] | null
 }
 
 /** Javno stanje igre – stiže u `data` događaja GAME_STATE_CHANGED i GAME_FINISHED */
@@ -328,6 +349,10 @@ export interface PublicGameStateResponse {
   voting: PublicVotingResponse | null
   /** koja je uloga noću budna (MAFIA, DAMA, Doktor, Policajac, Novinar); null u uvodu noći i danju */
   currentTurnRole: string | null
+  /** danju rezultat zadnje noći; noću i na kraju igre null */
+  lastNight: LastNightResponse | null
+  /** tko je javio "Spreman sam"; null izvan uvoda prve noći */
+  readyPlayerIds: number[] | null
 }
 
 export interface PlayerLeftResponse {
@@ -370,3 +395,8 @@ export type LobbyEvent =
   | LobbyEventOf<'VOTING_STARTED', { roundNumber: number; phaseEndsAt: string }>
   | LobbyEventOf<'VOTE_RESOLVED', ResolveVoteResponse>
   | LobbyEventOf<'GAME_FINISHED', PublicGameStateResponse>
+  | LobbyEventOf<'PLAYER_READY', PlayerReadyResponse>
+  /** bez podatka tko je za koga glasao; to je u `voting.votes` javnog stanja */
+  | LobbyEventOf<'VOTE_CAST', { votedCount: number; eligibleCount: number }>
+  /** domaćin je vratio završenu igru u čekaonicu iste sobe */
+  | LobbyEventOf<'REMATCH', null>

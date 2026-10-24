@@ -10,6 +10,8 @@ import type {
   ResolveVoteResponse,
 } from '../api/types.ts'
 import type { ConnectionStatus } from '../lib/stomp.ts'
+import { clearNarrated } from './narrated.ts'
+import { clearNotes } from './notes.ts'
 
 export interface Lobby {
   code: string
@@ -59,6 +61,8 @@ interface GameStore {
   gameFinished: (state: PublicGameStateResponse) => void
   /** isti ishod stiže događajem i u odgovoru REST-a, pa se drugi put preskače */
   voteResolved: (result: ResolveVoteResponse) => void
+  /** REMATCH: soba je opet u čekaonici, stanje stare igre se briše (i bilješke i naracije u pregledniku) */
+  clearGame: (code: string) => void
 }
 
 // Igrači se spajaju po id-u, a novi podaci zamjenjuju stare, pa zakašnjeli odgovor GET-a ne može
@@ -156,6 +160,20 @@ export const useGameStore = create<GameStore>((set, get) => {
       const current = get().voteResult
       if (current && voteKey(current) === voteKey(result)) return
       set({ voteResult: result })
+    },
+    // voteResult se mora obrisati: ključ "1:VOTING" stare igre inače bi progutao prvi ishod nove
+    clearGame: (code) => {
+      clearNarrated(code)
+      clearNotes(code)
+      set({ publicState: null, gameState: null, voteResult: null })
+      if (get().lobby?.code !== code) return
+      // tko je izašao tijekom igre, backend briše; ostali su opet živi i bez uloge
+      updateLobby((lobby) => ({
+        status: 'WAITING',
+        players: lobby.players
+          .filter((p) => p.eliminatedHow !== 'LEFT')
+          .map((p) => ({ ...p, alive: true, roleName: null, eliminatedHow: null, eliminatedRound: null })),
+      }))
     },
   }
 })

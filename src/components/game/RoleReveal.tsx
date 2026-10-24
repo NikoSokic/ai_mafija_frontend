@@ -1,13 +1,16 @@
 import { motion } from 'framer-motion'
 import { useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { beginNight, describeError } from '../../api/rest.ts'
 import type { LobbyPlayerResponse, TeammateResponse } from '../../api/types.ts'
 import { ROLES, type RoleKey } from '../../data/roles.ts'
 import { cx } from '../../lib/cx.ts'
-import { riseItem } from '../../lib/motion.ts'
-import { avatarById, playerHue } from '../../lib/playerLook.ts'
+import { EASE_SPRING, riseItem } from '../../lib/motion.ts'
+import { avatarById, avatarOf, playerHue } from '../../lib/playerLook.ts'
 import type { Mode } from '../../store/roomSettings.ts'
+import type { Session } from '../../store/session.ts'
 import Avatar from '../Avatar.tsx'
 import CardPattern from '../CardPattern.tsx'
+import { useErrorToast } from '../ErrorToast.tsx'
 import HoldButton from '../HoldButton.tsx'
 import IconButton from '../IconButton.tsx'
 import { Icon } from '../icons.tsx'
@@ -21,11 +24,30 @@ type RoleRevealProps = {
   /** suigrači iz tima mafije; za ostale uloge prazno */
   teammates: TeammateResponse[]
   players: LobbyPlayerResponse[]
+  code: string
+  session: Session
+  isHost: boolean
+  /** igrač je javio "Spreman sam" (ili je to backend već zapamtio) */
+  ready: boolean
+  /** readyPlayerIds iz javnog stanja */
+  readyPlayerIds: number[]
   onReady: () => void
 }
 
-// Otkrivanje uloge (spec 6.5). Uživo se uloga vidi samo dok je prst na karti, online dodir okreće.
-export default function RoleReveal({ role, mode, teammates, players, onReady }: RoleRevealProps) {
+// Otkrivanje uloge (spec 6.5) u uvodu prve noći. Uživo se uloga vidi samo dok je prst na karti,
+// online dodir okreće. Noć počinje kad su svi spremni ili kad domaćin ne želi čekati.
+export default function RoleReveal({
+  role,
+  mode,
+  teammates,
+  players,
+  code,
+  session,
+  isHost,
+  ready,
+  readyPlayerIds,
+  onReady,
+}: RoleRevealProps) {
   const [open, setOpen] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const hold = mode === 'live'
@@ -140,10 +162,73 @@ export default function RoleReveal({ role, mode, teammates, players, onReady }: 
         </div>
       </ScreenBody>
       <ScreenFooter rise>
-        <HoldButton onConfirm={onReady}>Spreman sam</HoldButton>
-        <p className="text-center text-[13px] text-muted">Drži gumb da potvrdiš.</p>
+        {ready ? (
+          <ReadyWait code={code} session={session} isHost={isHost} players={players} readyIds={readyPlayerIds} />
+        ) : (
+          <>
+            <HoldButton onConfirm={onReady}>Spreman sam</HoldButton>
+            <p className="text-center text-[13px] text-muted">Drži gumb da potvrdiš.</p>
+          </>
+        )}
       </ScreenFooter>
       <RulesSheet open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </Screen>
+  )
+}
+
+type ReadyWaitProps = {
+  code: string
+  session: Session
+  isHost: boolean
+  players: LobbyPlayerResponse[]
+  readyIds: number[]
+}
+
+// Čekanje ostalih (prototip roleCta): "Spremno X od Y" i avatari spremnih, svaki uskoči kad stigne.
+// Broje se živi igrači, kao readyTotal u backendu. Domaćin može pokrenuti noć i bez ostalih.
+function ReadyWait({ code, session, isHost, players, readyIds }: ReadyWaitProps) {
+  const [starting, setStarting] = useState(false)
+  const { toast, show } = useErrorToast()
+  const alive = players.filter((p) => p.alive)
+  const ready = alive.filter((p) => readyIds.includes(p.id) || p.id === session.playerId)
+
+  // Noć dalje stiže događajem; gumb ostaje ugašen dok ekran ne prijeđe u noć
+  async function begin() {
+    setStarting(true)
+    try {
+      await beginNight(code, session)
+    } catch (e) {
+      show('Noć nije pokrenuta', describeError(e, code))
+      setStarting(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="text-center">
+        <p role="status" className="text-[13px] text-muted">
+          Spremno {ready.length} od {alive.length}
+        </p>
+        <ul className="mt-2.5 flex min-h-8 flex-wrap justify-center gap-1.5">
+          {ready.map((p) => (
+            <motion.li
+              key={p.id}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, ease: EASE_SPRING }}
+            >
+              <Avatar emoji={avatarOf(p)} hue={playerHue(p.id)} size={32} />
+              <span className="sr-only">{p.nickname}</span>
+            </motion.li>
+          ))}
+        </ul>
+      </div>
+      {isHost && ready.length < alive.length && (
+        <HoldButton variant="secondary" disabled={starting} onConfirm={begin}>
+          Počni noć bez čekanja
+        </HoldButton>
+      )}
+      {toast}
+    </>
   )
 }

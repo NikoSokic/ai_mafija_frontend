@@ -81,3 +81,11 @@ function open(code: string): Connection {
   conn.client.activate()
   return conn
 }
+
+/** Ručno ponovno spajanje svih nespojenih veza (gumb "Pokušaj ponovno") */
+export function retryConnections() {
+  connections.forEach((conn) => {
+    if (conn.status === 'connected') return
+    void conn.client.deactivate().then(() => conn.client.activate())
+  })
+}

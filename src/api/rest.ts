@@ -11,6 +11,7 @@ import type {
   JoinLobbyResponse,
   LobbyDetailsResponse,
   PlayerAuth,
+  PlayerReadyResponse,
   PublicLobbyResponse,
   ReconnectRequest,
   ReconnectResponse,
@@ -59,6 +60,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(message || `Greška ${res.status}`, res.status, code)
   }
   return (text ? JSON.parse(text) : undefined) as T
+}
+
+// Buđenje servera: nikad ne baca, samo kaže je li odgovorio
+export async function getHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(8000) })
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
@@ -138,7 +149,19 @@ export const leaveLobby = (code: string, { playerId, playerToken }: PlayerAuth) 
 export const startLobby = (code: string, { playerId, playerToken }: PlayerAuth) =>
   request<void>(`${lobbyPath(code)}/start`, post({ playerId, playerToken } satisfies HostActionRequest))
 
-export const getGameState = (code: string, { playerId, playerToken }: PlayerAuth) =>
+// Uvod prve noći: igrač je pogledao ulogu. Ponovni poziv nije greška.
+export const markReady = (code: string, { playerId, playerToken }: PlayerAuth) =>
+  request<PlayerReadyResponse>(`${lobbyPath(code)}/ready`, post({ playerId, playerToken } satisfies PlayerAuth))
+
+// Samo domaćin, samo u uvodu prve noći: prvi potez počinje odmah, i kad nisu svi spremni
+export const beginNight = (code: string, { playerId, playerToken }: PlayerAuth) =>
+  request<void>(`${lobbyPath(code)}/begin-night`, post({ playerId, playerToken } satisfies HostActionRequest))
+
+// Samo domaćin, samo kad je igra završena: soba se vraća u čekaonicu s istim postavkama
+export const rematchLobby = (code: string, { playerId, playerToken }: PlayerAuth) =>
+  request<void>(`${lobbyPath(code)}/rematch`, post({ playerId, playerToken } satisfies HostActionRequest))
+
+export const getGameState =(code: string, { playerId, playerToken }: PlayerAuth) =>
   request<GameStateResponse>(`${lobbyPath(code)}/game-state`, {
     headers: { 'X-Player-Id': String(playerId), 'X-Player-Token': playerToken },
   })

@@ -29,9 +29,12 @@ function applyEvent(event: LobbyEvent) {
     case 'VOTE_RESOLVED':
       store.voteResolved(event.data)
       break
+    case 'REMATCH':
+      store.clearGame(event.lobbyCode)
+      break
     default:
-      // NIGHT_RESOLVED i VOTING_STARTED donose isto što i GAME_STATE_CHANGED koji
-      // stiže odmah za njima; nove događaje (spec 10.1) klijent preskače dok ih ne zna
+      // NIGHT_RESOLVED, VOTING_STARTED, VOTE_CAST i PLAYER_READY donose isto što i GAME_STATE_CHANGED
+      // koji stiže odmah za njima; nove događaje (spec 10.1) klijent preskače dok ih ne zna
       break
   }
 }

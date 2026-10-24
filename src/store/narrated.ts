@@ -20,3 +20,12 @@ export function markNarrated(code: string, narrationKey: string) {
     // nema spremanja
   }
 }
+
+// Nova igra u istoj sobi (ili izlazak iz nje): naracije počinju ispočetka
+export function clearNarrated(code: string) {
+  try {
+    sessionStorage.removeItem(key(code))
+  } catch {
+    // nema što obrisati
+  }
+}
