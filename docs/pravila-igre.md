@@ -19,7 +19,7 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 - Svaki potez traje **uvijek** 26 s: 6 s naracije + 20 s za odabir. Tko odigra ranije, čeka ("Potez je poslan"). Tko ne odigra, gubi potez. Mafija smije mijenjati metu do isteka roka.
 - Ako je uloga mrtva, narator je i dalje pozove, a njezin potez se **glumi** jednako dugo, pa se iz trajanja noći ne može zaključiti tko je živ.
 - **Mafija:** svi mafijaši vide odabir suigrača i smiju mijenjati metu. Potez završava kad svi odaberu istu metu. Ako istekne rok, vrijedi većina; kod izjednačenja te noći nitko ne strada. Mafija ne može ciljati svoj tim.
-- **Dama:** dok je Mafija živa, utiša jednog igrača (ne smije metu mafije). Utišani idući dan ne govori i ne glasa. Kad Mafija pogine, Dama u potezu mafije ubija i više ne utišava (njezin potez se tada glumi).
+- **Dama:** dok je Mafija živa, utiša jednog živog igrača (bilo kojeg: i sebe, i suigrača iz mafije, i metu mafije; ako meta tu noć pogine, ne ostaje utišana). Utišani idući dan ne govori i ne glasa. Kad Mafija pogine, Dama u potezu mafije ubija i više ne utišava (njezin potez se tada glumi).
 - **Doktor:** štiti bilo kojeg živog igrača, i sebe, i istog igrača više noći zaredom. Ako dva Doktora zaštite istog igrača, on umire (predoziranje).
 - **Policajac:** saznaje je li igrač mafija. Dama izgleda nevino dok je Mafija živa.
 - **Novinar:** saznaje jesu li dva igrača u istom timu.

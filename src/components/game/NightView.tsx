@@ -5,6 +5,8 @@ import type { ActionResponse, AvailableActionResponse, GameStateResponse } from 
 import { ROLES, type RoleKey } from '../../data/roles.ts'
 import { riseItem, riseList } from '../../lib/motion.ts'
 import { avatarById, playerHue } from '../../lib/playerLook.ts'
+import { formatSeconds } from '../../lib/time.ts'
+import { useCountdown } from '../../lib/useCountdown.ts'
 import { addNote, type NightNote, type NoteTarget } from '../../store/notes.ts'
 import type { Mode } from '../../store/roomSettings.ts'
 import type { Session } from '../../store/session.ts'
@@ -37,6 +39,9 @@ type NightViewProps = {
   onHoldChange: (hold: boolean) => void
 }
 
+// Potez traje 6 s naracije + 20 s za odabir (GameRules na backendu)
+const TURN_S = 26
+
 // Lokalni korak nakon potvrde. Nakon osvježavanja stranice ostaje samo hasActed iz backenda.
 type Step = { kind: 'pick' } | { kind: 'result'; note: NightNote } | { kind: 'sent' }
 
@@ -57,7 +62,8 @@ export default function NightView({
   onHoldChange,
 }: NightViewProps) {
   const [step, setStep] = useState<Step>({ kind: 'pick' })
-  const [selected, setSelected] = useState<number[]>([])
+  // null = igrač još nije dirao odabir; mafijaš tada vidi metu koju je već poslao
+  const [selected, setSelected] = useState<number[] | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<ErrorToast>({ open: false, title: '', text: '' })
   const [endOpen, setEndOpen] = useState(false)
@@ -69,7 +75,11 @@ export default function NightView({
   const me = state.currentPlayer
   const players = useMemo(() => [...state.players].sort((a, b) => a.id - b.id), [state.players])
   const alivePlayers = players.filter((p) => p.alive)
-  const action = me.canAct && !me.hasActed ? (me.availableActions[0] ?? null) : null
+  const offered = me.canAct ? (me.availableActions[0] ?? null) : null
+  // mafija smije mijenjati metu do kraja poteza, ostali igraju jednom
+  const action = offered && (!me.hasActed || offered.type === 'KILL') ? offered : null
+  const timer = useCountdown(action ? me.actionEndsAt : null, TURN_S)
+  const myPick = me.teamTargets.find((t) => t.playerId === me.playerId)?.targetPlayerId ?? null
 
   const emojiOf = (id: number) => avatarById(players, id)
   const nicknameOf = (id: number) => players.find((p) => p.id === id)?.nickname ?? '?'
@@ -79,14 +89,18 @@ export default function NightView({
   function tagFor(id: number, a: AvailableActionResponse): string | null {
     const allowed = a.targetPlayerIds.includes(id)
     if (id === me.playerId) return a.type === 'SAVE' && allowed ? null : 'Ti'
+    if (a.type === 'KILL' && me.teammates.some((t) => t.playerId === id)) return 'Tvoj tim'
     if (!allowed) return a.type === 'SILENCE' ? 'Meta mafije' : 'Nedostupno'
     return null
   }
 
   const need = action?.requiresSecondTarget ? 2 : 1
   // odabir koji je u međuvremenu postao nedostupan (novi game-state) se ne računa
-  const picked = action ? selected.filter((id) => tagFor(id, action) === null) : []
+  const chosen = selected ?? (action?.type === 'KILL' && myPick !== null ? [myPick] : [])
+  const picked = action ? chosen.filter((id) => tagFor(id, action) === null) : []
   const ready = picked.length === need
+  // mafijaš je ovu metu već poslao: potvrda nije potrebna dok ne odabere drugu
+  const alreadySent = action?.type === 'KILL' && picked[0] === myPick
 
   function toggle(id: number) {
     if (picked.includes(id)) setSelected(picked.filter((x) => x !== id))
@@ -114,6 +128,10 @@ export default function NightView({
       if (note) {
         addNote(code, note)
         setStep({ kind: 'result', note })
+      } else if (action.type === 'KILL') {
+        // meta se može mijenjati do kraja poteza, pa ekran ostaje na odabiru
+        onHoldChange(false)
+        setSelected(null)
       } else {
         onHoldChange(false)
         setStep({ kind: 'sent' })
@@ -143,8 +161,8 @@ export default function NightView({
   let view: 'result' | 'observer' | 'sent' | 'action' | 'sleep'
   if (step.kind === 'result') view = 'result'
   else if (!me.alive) view = 'observer'
-  else if (step.kind === 'sent' || me.hasActed) view = 'sent'
   else if (action) view = 'action'
+  else if (step.kind === 'sent' || me.hasActed) view = 'sent'
   else view = 'sleep'
 
   let main: ReactNode
@@ -170,11 +188,16 @@ export default function NightView({
     const text = nightText(action.type, role)
     main = (
       <>
-        {role && (
-          <motion.div variants={riseItem}>
-            <TurnBadge role={role} className="mt-1" />
-          </motion.div>
-        )}
+        <motion.div variants={riseItem} className="mt-1 flex items-center gap-3">
+          {role && <TurnBadge role={role} />}
+          <span
+            role="timer"
+            aria-label="Preostalo vrijeme poteza"
+            className={`text-[15px] font-semibold tabular-nums ${timer.left <= 5 ? 'text-accent' : 'text-muted'}`}
+          >
+            {formatSeconds(timer.left)}
+          </span>
+        </motion.div>
         <motion.h3
           variants={riseItem}
           className="mt-1.5 mb-2 max-w-[18ch] text-[26px] leading-[1.15] font-bold tracking-[-.025em]"
@@ -188,6 +211,9 @@ export default function NightView({
           {alivePlayers.map((p) => {
             const tag = tagFor(p.id, action)
             const isMe = p.id === me.playerId
+            const pickers = me.teamTargets
+              .filter((t) => t.targetPlayerId === p.id && t.playerId !== me.playerId)
+              .map((t) => ({ emoji: emojiOf(t.playerId), hue: playerHue(t.playerId), name: nicknameOf(t.playerId) }))
             return (
               <PlayerTile
                 key={p.id}
@@ -196,6 +222,7 @@ export default function NightView({
                 hue={playerHue(p.id)}
                 selected={picked.includes(p.id)}
                 tag={tag}
+                pickers={pickers}
                 onSelect={() => toggle(p.id)}
               />
             )
@@ -206,7 +233,12 @@ export default function NightView({
     footer = (
       <>
         <div aria-live="polite" className="mb-0.5 flex min-h-6 items-center gap-2.5 text-[15px] text-muted">
-          {ready ? (
+          {alreadySent ? (
+            <span>
+              Odabrano: <b className="font-semibold text-text">{nicknameOf(picked[0])}</b>. Možeš promijeniti do kraja
+              poteza.
+            </span>
+          ) : ready ? (
             <span>
               {text.verb} <b className="font-semibold text-text">{picked.map(nicknameOf).join(' i ')}</b>
             </span>
@@ -216,8 +248,8 @@ export default function NightView({
             'Odaberi igrača'
           )}
         </div>
-        <HoldButton disabled={!ready || sending} onConfirm={confirm}>
-          {sending ? 'Šaljem…' : 'Drži za potvrdu'}
+        <HoldButton disabled={!ready || alreadySent || sending} onConfirm={confirm}>
+          {sending ? 'Šaljem…' : alreadySent ? 'Meta je poslana' : 'Drži za potvrdu'}
         </HoldButton>
       </>
     )

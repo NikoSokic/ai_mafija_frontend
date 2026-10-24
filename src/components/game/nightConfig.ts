@@ -7,8 +7,8 @@ export type NightText = { question: string; hint: string; verb: string }
 const TEXTS: Record<ActionType, NightText> = {
   KILL: {
     question: 'Koga mafija uklanja večeras?',
-    // prototip: "Tvoj tim vidi tvoj odabir…" – backend to još ne podržava (docs/backend-todo.md)
-    hint: 'Odaberi igrača kojeg mafija uklanja. Ako vas je više, vrijedi odabir onoga tko prvi potvrdi.',
+    // GameRulesService.mafiaKillTarget: većina živih mafijaša, kod izjednačenja nitko
+    hint: 'Strada onaj koga odabere većina mafije. Ako se ne složite, nitko ne strada.',
     verb: 'Meta:',
   },
   SILENCE: {

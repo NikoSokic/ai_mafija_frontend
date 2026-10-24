@@ -1,9 +1,12 @@
 import { motion } from 'framer-motion'
 import { useState, type KeyboardEvent, type PointerEvent } from 'react'
+import type { LobbyPlayerResponse, TeammateResponse } from '../../api/types.ts'
 import { ROLES, type RoleKey } from '../../data/roles.ts'
 import { cx } from '../../lib/cx.ts'
 import { riseItem } from '../../lib/motion.ts'
+import { avatarById, playerHue } from '../../lib/playerLook.ts'
 import type { Mode } from '../../store/roomSettings.ts'
+import Avatar from '../Avatar.tsx'
 import CardPattern from '../CardPattern.tsx'
 import HoldButton from '../HoldButton.tsx'
 import IconButton from '../IconButton.tsx'
@@ -15,11 +18,14 @@ import { Screen, ScreenBody, ScreenFooter, ScreenTop } from '../Screen.tsx'
 type RoleRevealProps = {
   role: RoleKey
   mode: Mode
+  /** suigrači iz tima mafije; za ostale uloge prazno */
+  teammates: TeammateResponse[]
+  players: LobbyPlayerResponse[]
   onReady: () => void
 }
 
 // Otkrivanje uloge (spec 6.5). Uživo se uloga vidi samo dok je prst na karti, online dodir okreće.
-export default function RoleReveal({ role, mode, onReady }: RoleRevealProps) {
+export default function RoleReveal({ role, mode, teammates, players, onReady }: RoleRevealProps) {
   const [open, setOpen] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const hold = mode === 'live'
@@ -105,6 +111,23 @@ export default function RoleReveal({ role, mode, onReady }: RoleRevealProps) {
                   {info.team === 'mafia' ? 'Tim mafije' : 'Tim građana'}
                 </div>
                 <p className="max-w-[24ch] text-[15px] leading-[1.45]">{info.long}</p>
+                {teammates.length > 0 && (
+                  <ul className="mt-3.5 flex flex-wrap justify-center gap-2">
+                    {teammates.map((t) => {
+                      const mate = t.roleName in ROLES ? ROLES[t.roleName as RoleKey] : null
+                      return (
+                        <li
+                          key={t.playerId}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-full bg-surface-2 pr-3 pl-1 text-[13px] font-medium"
+                        >
+                          <Avatar emoji={avatarById(players, t.playerId)} hue={playerHue(t.playerId)} size={24} />
+                          {t.nickname}
+                          <span style={{ color: mate?.color }}>{mate?.name ?? t.roleName}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
               </div>
             </div>
           </motion.div>

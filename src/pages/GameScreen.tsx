@@ -329,7 +329,17 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   let content = null
   if (shown?.view === 'role') {
     // uloga dolazi iz GET-a; bez nje se kartica ne prikazuje
-    if (role) content = <RoleReveal role={role} mode={mode} onReady={handleReady} />
+    if (role) {
+      content = (
+        <RoleReveal
+          role={role}
+          mode={mode}
+          teammates={gameState?.currentPlayer.teammates ?? []}
+          players={snap?.players ?? []}
+          onReady={handleReady}
+        />
+      )
+    }
   } else if (shown?.view === 'night') {
     if (gameState) {
       content = (

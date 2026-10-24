@@ -23,11 +23,21 @@ type PlayerTileProps = {
   selected?: boolean
   /** razlog zašto se igrač ne može odabrati ("Ti", "Meta mafije"); tada je pločica onemogućena */
   tag?: string | null
+  /** suigrači iz mafije koji su odabrali ovu metu */
+  pickers?: { emoji: string; hue: number; name: string }[]
   onSelect?: () => void
 }
 
 // Meta noćne akcije u mreži 3 stupca. Odabir zatvori kutove nišana oko pločice.
-export default function PlayerTile({ name, emoji, hue, selected = false, tag = null, onSelect }: PlayerTileProps) {
+export default function PlayerTile({
+  name,
+  emoji,
+  hue,
+  selected = false,
+  tag = null,
+  pickers = [],
+  onSelect,
+}: PlayerTileProps) {
   const off = Boolean(tag)
   return (
     <button
@@ -58,6 +68,12 @@ export default function PlayerTile({ name, emoji, hue, selected = false, tag = n
       )}
       <Avatar emoji={emoji} hue={hue} size={46} selected={selected} />
       <span className="max-w-full truncate text-sm font-semibold">{name}</span>
+      {pickers.length > 0 && (
+        <span className="absolute -bottom-[7px] left-1/2 flex h-[22px] max-w-[calc(100%+8px)] -translate-x-1/2 items-center gap-1 rounded-full border border-line bg-bg pr-2 pl-[3px] text-[11px] font-semibold whitespace-nowrap">
+          <Avatar emoji={pickers[0].emoji} hue={pickers[0].hue} size={16} />
+          <span className="truncate">{pickers.length > 1 ? `${pickers.length} iz tima` : pickers[0].name}</span>
+        </span>
+      )}
     </button>
   )
 }

@@ -2,6 +2,8 @@
 //
 // Upotreba:  node scripts/bots.mjs KOD [--svi]
 //   KOD    kod sobe; botovi se čitaju iz scripts/.bots/KOD.json
+//   --nesloga  botovi mafije biraju različite mete (i različite od mete igrača iz preglednika),
+//          pa se tim ne složi i nitko ne strada
 //   --svi  mafija smije ciljati bilo koga (zadano cilja samo botove izvan tima mafije,
 //          da igrač u pregledniku ne strada prerano)
 //
@@ -24,8 +26,9 @@ const MAFIA_TEAM = new Set(['Mafia', 'Dama'])
 const args = process.argv.slice(2)
 const code = args.find((a) => !a.startsWith('--'))?.toUpperCase()
 const anyTarget = args.includes('--svi')
+const disagree = args.includes('--nesloga')
 if (!code) {
-  console.error('Upotreba: node scripts/bots.mjs KOD [--svi]')
+  console.error('Upotreba: node scripts/bots.mjs KOD [--svi] [--nesloga]')
   process.exit(1)
 }
 
@@ -75,6 +78,13 @@ function teamTarget(teamTargets) {
   const human = teamTargets.find((t) => !botIds.has(t.playerId))
   const leader = human ?? [...teamTargets].sort((a, b) => a.playerId - b.playerId)[0]
   return leader?.targetPlayerId ?? null
+}
+
+// Za --nesloga: meta koju nitko iz tima još nije odabrao (ako je ima)
+function differentTarget(bot, action, roles, teamTargets) {
+  const taken = new Set(teamTargets.map((t) => t.targetPlayerId))
+  const free = action.targetPlayerIds.filter((id) => !taken.has(id) && id !== bot.playerId)
+  return pick(free.length ? free : chooseTargets(bot, action, roles))
 }
 
 async function act(bot, role, action, targets, names) {
@@ -166,9 +176,9 @@ for (;;) {
       if (!me.hasActed && !started.has(key)) {
         // prvi odabir: meta tima ako je netko već odabrao, inače slučajna
         started.add(key)
-        const target = agreed ?? chooseTargets(bot, action, roles)[0]
+        const target = disagree ? differentTarget(bot, action, roles, me.teamTargets) : (agreed ?? chooseTargets(bot, action, roles)[0])
         setTimeout(() => act(bot, me.role, action, [target], names), THINK_MS)
-      } else if (me.hasActed && agreed !== null && agreed !== own && !started.has(`${key}:${agreed}`)) {
+      } else if (!disagree && me.hasActed && agreed !== null && agreed !== own && !started.has(`${key}:${agreed}`)) {
         // mafija smije promijeniti metu dok se tim ne složi
         started.add(`${key}:${agreed}`)
         setTimeout(() => act(bot, me.role, action, [agreed], names), THINK_MS)
