@@ -61,6 +61,15 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 - Nakon kraja igre: igrač napušta sobu ("Na početnu"); ako ode domaćin, domaćin postaje igrač koji je najranije ušao.
 - U svim slučajevima igrač gubi token i ne može se vratiti tom prijavom.
 
+## Igrači i domaćin koji nestanu
+
+- Aplikacija se javlja poslužitelju svakih 15 s. Tko se ne javlja 45 s, u čekaonici ima oznaku "Nije tu".
+- **Izbacivanje:** dok soba čeka igrače, domaćin može izbaciti bilo kojeg igrača (uz potvrdu). Mjesto i nadimak se oslobađaju, a izbačeni se može vratiti s kodom sobe. Nakon "Igraj ponovno" igrač koji nije izašao ostaje u sobi, pa ga domaćin može izbaciti ako se ne javlja.
+- **Domaćin koji se ne javlja** predaje ulogu: nakon 120 s u čekaonici i na kraju igre, a nakon 45 s usred igre. Domaćin postaje igrač koji se javlja, prvo živi, pa onaj koji je najranije ušao. Ako se nitko ne javlja, ništa se ne mijenja.
+- Bivši domaćin ostaje običan igrač i ulogu ne dobiva natrag kad se vrati.
+- Nakon ponovnog pokretanja poslužitelja rokovi se računaju od pokretanja, pa nitko ne gubi ulogu zbog restarta.
+- Uživo glas naratora govori samo domaćinov mobitel, pa prijenosom glas prelazi na novog domaćina.
+
 ## Kraj igre
 
 - Uloge svih igrača postaju javne tek kad igra završi (`roleName` u popisu igrača).

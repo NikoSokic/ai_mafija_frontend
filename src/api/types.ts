@@ -366,6 +366,18 @@ export interface HostChangedResponse {
   hostPlayerId: number
 }
 
+/** Odgovor na javljanje (`POST /api/players/heartbeat`) */
+export interface HeartbeatResponse {
+  hostPlayerId: number | null
+  /** igrači koji se ne javljaju 45 s ("Nije tu"), bez onoga tko se javio */
+  awayPlayerIds: number[]
+}
+
+export interface PlayerKickedResponse {
+  playerId: number
+  nickname: string
+}
+
 /** `code` je stabilan (backend exception/ErrorCode.java), `message` je tekst za ljude */
 export interface ApiErrorResponse {
   timestamp: string
@@ -389,6 +401,8 @@ export type LobbyEvent =
   | LobbyEventOf<'PLAYER_JOINED', LobbyPlayerResponse>
   | LobbyEventOf<'PLAYER_LEFT', PlayerLeftResponse>
   | LobbyEventOf<'HOST_CHANGED', HostChangedResponse>
+  /** domaćin je izbacio igrača iz čekaonice (uz PLAYER_LEFT) */
+  | LobbyEventOf<'PLAYER_KICKED', PlayerKickedResponse>
   | LobbyEventOf<'GAME_STARTED', null>
   | LobbyEventOf<'GAME_STATE_CHANGED', PublicGameStateResponse>
   | LobbyEventOf<'NIGHT_RESOLVED', ResolveNightResponse>

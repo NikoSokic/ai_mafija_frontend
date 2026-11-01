@@ -28,6 +28,7 @@ const READY_MAX_MS = 3000
 const VOTE_MIN_MS = 1000
 const VOTE_MAX_MS = 4000
 const HOST_WAIT_MS = 3000
+const HEARTBEAT_MS = 10000
 const MAFIA_TEAM = new Set(['Mafia', 'Dama'])
 
 const args = process.argv.slice(2)
@@ -146,6 +147,14 @@ async function vote(bot, targetPlayerId, names) {
   }
 }
 
+// Kao i preglednik, botovi se javljaju backendu; bez toga bi bili "Nije tu", a bot-domaćin bi izgubio ulogu
+let lastBeat = 0
+function heartbeats() {
+  if (Date.now() - lastBeat < HEARTBEAT_MS) return
+  lastBeat = Date.now()
+  for (const bot of bots) post('/api/players/heartbeat', auth(bot)).catch(() => {})
+}
+
 // Što domaćin-bot radi: pokreće igru, glasanje i novu igru. Ključ u `started` da se ne pošalje dvaput.
 function hostDuties(host, state, lobby, gamesLeft) {
   const once = (key, ms, fn) => {
@@ -176,6 +185,7 @@ let game = 1
 let finished = 0
 
 for (;;) {
+  heartbeats()
   const states = await Promise.all(
     bots.map((bot) =>
       gameState(bot)

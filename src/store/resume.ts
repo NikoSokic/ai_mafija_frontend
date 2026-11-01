@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError, reconnect } from '../api/rest.ts'
+import { ApiError, leaveLobby, reconnect } from '../api/rest.ts'
 import type { LobbyStatus } from '../api/types.ts'
 import { clearSession, loadSession } from './session.ts'
 
@@ -63,7 +63,11 @@ async function run(check: boolean): Promise<ResumeTarget | null> {
         useResumeStore.setState({ status: 'done', lobbyCode: res.lobbyCode, lobbyStatus: res.lobbyStatus })
         return { lobbyCode: res.lobbyCode, lobbyStatus: res.lobbyStatus }
       }
-      // igra je gotova ili sesija pripada drugoj sobi
+      // Igra je gotova ili sesija pripada drugoj sobi. Za završenu igru javlja se i backendu: inače bi igrač
+      // nakon "Igraj ponovno" ostao u čekaonici kao igrač kojeg nema (a domaćin bi ostao bez zamjene).
+      if (res.valid && res.lobbyCode === session.lobbyCode && res.lobbyStatus === 'FINISHED') {
+        leaveLobby(session.lobbyCode, session).catch(() => {})
+      }
       clearSession()
     } catch (e) {
       // Igrač ne postoji ili token ne vrijedi – sesija je stara. Bez veze sesija ostaje za kasnije.

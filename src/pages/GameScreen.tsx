@@ -1,6 +1,6 @@
 import { AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams } from 'react-router'
 import { ApiError, describeError, getGameState, markReady } from '../api/rest.ts'
 import type { GameStateResponse, PublicGameStateResponse, ResolveVoteResponse, Winner } from '../api/types.ts'
 import Button from '../components/Button.tsx'
@@ -30,6 +30,7 @@ import {
 } from '../lib/narration.ts'
 import { avatarOf } from '../lib/playerLook.ts'
 import type { Theme } from '../lib/theme.ts'
+import { useHeartbeat } from '../lib/useHeartbeat.ts'
 import { useHostNotice } from '../lib/useHostNotice.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useStayAwake } from '../lib/useStayAwake.ts'
@@ -184,7 +185,15 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
   const [readySent, setReadySent] = useState(false)
   const requestId = useRef(0)
   const { toast: errorToast, show: showError } = useErrorToast()
-  useHostNotice(becameHost, showError)
+  // Domaćin koji nestane predaje ulogu; uživo novi domaćin preuzima i glas naratora sa svog mobitela
+  const hostNoticeText = lobby?.mode !== 'ONLINE' && voiceOn ? 'Glas naratora sada ide s tvog mobitela.' : 'Sad upravljaš igrom.'
+  useHostNotice(becameHost, showError, hostNoticeText)
+  // backend ne poznaje ovog igrača (npr. maknut je nakon "Igraj ponovno"): sesija više ne vrijedi
+  const navigate = useNavigate()
+  useHeartbeat(session, () => {
+    clearSession()
+    navigate('/', { replace: true })
+  })
 
   // Privatno stanje (uloga, potez…) dolazi samo iz GET-a; zakašnjeli odgovor se odbacuje
   const refresh = useCallback(() => {

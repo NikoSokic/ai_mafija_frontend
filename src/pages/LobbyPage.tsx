@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, describeError, joinLobby, reconnect, startLobby } from '../api/rest.ts'
 import type { LobbyPlayerResponse } from '../api/types.ts'
@@ -11,6 +11,7 @@ import ConnectionToast from '../components/ConnectionToast.tsx'
 import { useErrorToast } from '../components/ErrorToast.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
+import KickPlayerSheet from '../components/KickPlayerSheet.tsx'
 import LeaveRoomSheet from '../components/LeaveRoomSheet.tsx'
 import MeTag from '../components/MeTag.tsx'
 import RoleComposition from '../components/RoleComposition.tsx'
@@ -25,6 +26,7 @@ import { copyText } from '../lib/clipboard.ts'
 import { cx } from '../lib/cx.ts'
 import { EASE_SPRING, riseItem } from '../lib/motion.ts'
 import { avatarOf, playerHue } from '../lib/playerLook.ts'
+import { useHeartbeat } from '../lib/useHeartbeat.ts'
 import { useHostNotice } from '../lib/useHostNotice.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore, type Lobby } from '../store/gameStore.ts'
@@ -77,6 +79,7 @@ function LobbyScreen({ code }: { code: string }) {
           lobby={lobby}
           me={me}
           onJoined={(session) => setMe({ session })}
+          onLost={() => setMe(null)}
           onOpenRules={() => setRulesOpen(true)}
         />
       )}
@@ -147,15 +150,37 @@ type LobbyViewProps = {
   lobby: Lobby
   me: Me | null
   onJoined: (session: Session) => void
+  /** backend ne poznaje ovog igrača (izbacio ga je domaćin); sesija je već obrisana */
+  onLost: () => void
   onOpenRules: () => void
 }
 
-function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
+function LobbyView({ lobby, me, onJoined, onLost, onOpenRules }: LobbyViewProps) {
   const navigate = useNavigate()
   const [leaveOpen, setLeaveOpen] = useState(false)
+  // igrač kojeg domaćin izbacuje; ostaje postavljen dok se sheet zatvara
+  const [kick, setKick] = useState<{ player: LobbyPlayerResponse | null; open: boolean }>({ player: null, open: false })
   const becameHost = useGameStore((s) => s.becameHost)
+  const kickedMe = useGameStore((s) => s.kickedMe)
+  const awayIds = useGameStore((s) => s.awayIds)
   const { toast, show } = useErrorToast()
-  useHostNotice(becameHost, show)
+  useHostNotice(becameHost, show, 'Možeš pokrenuti igru.')
+
+  // Izbacio ga je domaćin (događaj PLAYER_KICKED ili heartbeat odbijen): prijava više ne vrijedi,
+  // pa se opet prikazuje ulazak u sobu. Dvije dojave za isti slučaj: druga vidi da sesije više nema.
+  const handleLost = useCallback(() => {
+    if (!loadSession()) return
+    clearSession()
+    show('Više nisi u ovoj sobi', 'Domaćin te izbacio ili soba više ne postoji. Možeš ući ponovno s kodom sobe.')
+    onLost()
+  }, [show, onLost])
+  const seenKick = useRef(kickedMe)
+  useEffect(() => {
+    if (kickedMe === seenKick.current) return
+    seenKick.current = kickedMe
+    handleLost()
+  }, [kickedMe, handleLost])
+  useHeartbeat(me?.session ?? null, handleLost)
 
   // Postavke sobe i sastav uloga dolaze iz backenda, pa ih vide svi igrači
   const { code, players, maxPlayers, mode, isPublic, voiceEnabled, hostPlayerId: hostId } = lobby
@@ -203,7 +228,14 @@ function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
         </div>
 
         <Section title="Igrači" aside={`${players.length} od ${maxPlayers}`}>
-          <PlayerGrid players={players} vacant={missing} hostId={hostId ?? undefined} meId={meId} />
+          <PlayerGrid
+            players={players}
+            vacant={missing}
+            hostId={hostId ?? undefined}
+            meId={meId}
+            awayIds={awayIds}
+            onKick={amHost ? (player) => setKick({ player, open: true }) : undefined}
+          />
           <p className="mt-2.5 text-[13px] leading-[1.45] text-muted">Svaki igrač pali jedno svjetlo u gradu.</p>
         </Section>
 
@@ -231,6 +263,15 @@ function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
         onClose={() => setLeaveOpen(false)}
         onLeft={() => navigate('/')}
       />
+      {me && amHost && (
+        <KickPlayerSheet
+          open={kick.open}
+          player={kick.player}
+          code={code}
+          session={me.session}
+          onClose={() => setKick((k) => ({ ...k, open: false }))}
+        />
+      )}
       {toast}
     </Screen>
   )
@@ -248,11 +289,15 @@ type PlayerGridProps = {
   vacant: number
   hostId?: number
   meId?: number
+  /** igrači koji se ne javljaju ("Nije tu") */
+  awayIds: number[]
+  /** postavljen samo domaćinu: gumb za izbacivanje na kartici tuđeg igrača */
+  onKick?: (player: LobbyPlayerResponse) => void
 }
 
 // Mreža 2 stupca. Igrači koji su već u sobi pri otvaranju se ne animiraju (initial={false}),
 // a svaki novi uskoči spring animacijom na mjesto prvog praznog.
-function PlayerGrid({ players, vacant, hostId, meId }: PlayerGridProps) {
+function PlayerGrid({ players, vacant, hostId, meId, awayIds, onKick }: PlayerGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2">
       <AnimatePresence initial={false}>
@@ -270,13 +315,24 @@ function PlayerGrid({ players, vacant, hostId, meId }: PlayerGridProps) {
               size={42}
               host={p.id === hostId}
             />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center">
                 <span className="truncate text-[15px] font-semibold">{p.nickname}</span>
                 {p.id === meId && <MeTag />}
               </div>
-              <div className="text-xs text-muted">{p.id === hostId ? 'Domaćin' : 'Spreman'}</div>
+              <div className={cx('text-xs', awayIds.includes(p.id) ? 'text-accent' : 'text-muted')}>
+                {awayIds.includes(p.id) ? 'Nije tu' : p.id === hostId ? 'Domaćin' : 'Spreman'}
+              </div>
             </div>
+            {onKick && p.id !== meId && (
+              <IconButton
+                icon="x"
+                iconSize={16}
+                aria-label={`Izbaci igrača ${p.nickname}`}
+                className="size-8 rounded-[10px]"
+                onClick={() => onKick(p)}
+              />
+            )}
           </motion.div>
         ))}
         {Array.from({ length: vacant }, (_, i) => (

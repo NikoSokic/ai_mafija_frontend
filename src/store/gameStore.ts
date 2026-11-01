@@ -45,6 +45,10 @@ interface GameStore {
   leftIds: number[]
   /** raste svaki put kad ovaj igrač postane domaćin (za obavijest) */
   becameHost: number
+  /** igrači koji se ne javljaju ("Nije tu"), iz odgovora na heartbeat */
+  awayIds: number[]
+  /** raste kad domaćin izbaci ovaj uređaj iz sobe (PLAYER_KICKED) */
+  kickedMe: number
 
   /** prazni stanje kad se otvori druga soba; za istu sobu ga ostavlja */
   reset: (code: string) => void
@@ -56,6 +60,9 @@ interface GameStore {
   playerJoined: (player: LobbyPlayerResponse) => void
   playerLeft: (playerId: number, newHostPlayerId: number | null, myId: number | null) => void
   hostChanged: (hostPlayerId: number, myId: number | null) => void
+  /** odgovor na heartbeat: tko je "Nije tu" */
+  setAway: (awayIds: number[]) => void
+  playerKicked: (playerId: number, myId: number | null) => void
   gameStarted: () => void
   gameStateChanged: (state: PublicGameStateResponse) => void
   gameFinished: (state: PublicGameStateResponse) => void
@@ -108,10 +115,20 @@ export const useGameStore = create<GameStore>((set, get) => {
     connection: 'connecting',
     leftIds: [],
     becameHost: 0,
+    awayIds: [],
+    kickedMe: 0,
 
     reset: (code) => {
       if (get().lobby?.code === code) return
-      set({ lobby: null, lobbyError: null, publicState: null, gameState: null, voteResult: null, leftIds: [] })
+      set({
+        lobby: null,
+        lobbyError: null,
+        publicState: null,
+        gameState: null,
+        voteResult: null,
+        leftIds: [],
+        awayIds: [],
+      })
     },
     setLobby: (details) => {
       const previous = get().lobby
@@ -152,6 +169,10 @@ export const useGameStore = create<GameStore>((set, get) => {
         players: lobby.players.map((p) => ({ ...p, host: p.id === hostPlayerId })),
       }))
       if (hostPlayerId === myId && !wasMe) set({ becameHost: get().becameHost + 1 })
+    },
+    setAway: (awayIds) => set({ awayIds }),
+    playerKicked: (playerId, myId) => {
+      if (playerId === myId) set({ kickedMe: get().kickedMe + 1 })
     },
     gameStarted: () => updateLobby(() => ({ status: 'IN_PROGRESS' })),
     gameStateChanged: applyPublicState,

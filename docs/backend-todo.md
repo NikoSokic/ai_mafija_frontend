@@ -11,9 +11,6 @@ Backend šalje `GAME_STATE_CHANGED` pri svakom prijelazu poteza, a javno stanje 
 
 Treba (ako se želi): `roles` (`roleName`, `count`, kao `LobbyRoleResponse`) u `PublicLobbyResponse`.
 
-## Povratak na kraj igre s Početne
-Pri pokretanju aplikacije na Početnoj (`src/store/resume.ts`) sesija za sobu u stanju `FINISHED` se briše lokalno, ali backendu se ne javlja `/leave`. Takav igrač nakon "Igraj ponovno" ostaje u čekaonici kao igrač kojeg nema, pa domaćin mora čekati ili napraviti novu sobu. Moguće rješenje na frontendu: tada pozvati `/leave`; ili backend da domaćinu izbaci igrača iz čekaonice.
-
 ## Autorizacija i sigurnost (10.8, 10.15)
 - `GET /api/lobbies/{code}` i javno stanje su dostupni svakome tko zna kod (samo javni podaci).
 - Lozinka baze se čita iz `SPRING_DATASOURCE_PASSWORD`; provjeri da stara lozinka više nije u povijesti repoa ili je promijeni u Supabaseu.
@@ -53,3 +50,15 @@ Prije pokretanja nove verzije backenda pokreni i `db/migrations/004_spreman.sql`
 - **Spreman sam (6.5):** `POST /api/lobbies/{code}/ready {playerId, playerToken}` → `{playerId, readyCount, readyTotal}`, događaj `PLAYER_READY` s istim podacima. Tko je spreman piše u `readyPlayerIds` (javno stanje i `GET /game-state`), a polje postoji samo u uvodu prve noći (`NIGHT`, runda 1, `currentTurnRole` null); inače je `null`. Kad su spremni svi živi igrači, prvi potez počinje odmah; uvod najkasnije završava nakon 90 s. Frontend: ekran uloge traje dok je `readyPlayerIds` različit od `null`, nakon "Spreman sam" pokazuje "Spremno X od Y" s avatarima spremnih, a nakon osvježavanja odmah čekanje. Lokalni `aimafija.seenRole` više ne postoji. `PLAYER_READY` frontend preskače, jer odmah za njim stiže `GAME_STATE_CHANGED`.
 - **Počni noć bez čekanja:** `POST /api/lobbies/{code}/begin-night` (samo domaćin, samo u uvodu prve noći), na ekranu uloge kao HoldButton.
 - **Igraj ponovno (6.9):** `POST /api/lobbies/{code}/rematch` (samo domaćin, samo `FINISHED`). Soba se vraća u `WAITING` sa sastavom uloga i postavkama, igrači koji su izašli se brišu, ostali su opet živi i bez uloge. Događaj `REMATCH`, odmah za njim `GAME_STATE_CHANGED` s `lobbyStatus: WAITING`. Frontend na `REMATCH` (ili kad `GET /game-state` vrati `WAITING`) briše stanje igre u `gameStore`, bilješke (`aimafija.notes`) i pročitane naracije (`aimafija.narrated`) i vodi na `/soba/{code}`. Ostali igrači na kraju igre vide "Čekamo domaćina…" i "Na početnu" (`/leave`, koji u `FINISHED` sobi briše token i po potrebi predaje domaćina). "Nova soba s istim postavkama" više ne postoji.
+
+## Novo u backendu (studeni 2026., taskovi 13–15)
+Prije pokretanja nove verzije backenda pokreni i `db/migrations/005_zadnje_javljanje.sql` u Supabase SQL editoru (stupac `player.last_seen_at`).
+
+- **Javljanje:** `POST /api/players/heartbeat {playerId, playerToken}` → `{hostPlayerId, awayPlayerIds}`. Frontend (`src/lib/useHeartbeat.ts`) zove svakih 15 s, pri povratku u aplikaciju i kad se vrati veza. `awayPlayerIds` su igrači koji se ne javljaju 45 s (bez pozivatelja). Odgovori 401 i 404 znače da igrača u sobi više nema (izbačen je ili je soba obrisana), pa klijent briše sesiju.
+- **Izbacivanje iz čekaonice:** `POST /api/lobbies/{code}/kick {playerId, playerToken, targetPlayerId}` (samo domaćin, samo `WAITING`). Događaji `PLAYER_LEFT` i `PLAYER_KICKED {playerId, nickname}`, zatim `GAME_STATE_CHANGED`. Greške: `NOT_HOST`, `CANNOT_KICK_SELF`, `PLAYER_NOT_FOUND`, `WRONG_PHASE`. Izbačeni se može vratiti kodom sobe.
+- **Prijenos domaćina:** domaćin koji se ne javlja 120 s (čekaonica i kraj igre) ili 45 s (igra u tijeku) predaje ulogu igraču koji se javlja (događaj `HOST_CHANGED`). Bivši domaćin ostaje u sobi kao običan igrač.
+- **Povratak na kraj igre s Početne:** `src/store/resume.ts` sada javlja `/leave` za sobu u stanju `FINISHED`. Igrač koji samo zatvori aplikaciju ostaje u sobi s oznakom "Nije tu", pa ga domaćin može izbaciti.
+
+## Nije riješeno
+- Domaćin koji ode usred igre još uvijek mora čekati rok (45 s) prije prijenosa; kraći rok bi davao lažne prijenose kad mobitel nakratko zaspi.
+- Mobilni preglednici usporavaju ili zaustavljaju JavaScript u pozadini, pa se heartbeat tada ne šalje. Wake lock (`useStayAwake`) drži ekran upaljenim tijekom igre, ali u čekaonici ga nema.

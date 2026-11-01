@@ -23,9 +23,9 @@ Oznake:
 - [x] **12. [FE] "Chat stiže uskoro":** ukloniti iz `src/components/game/DayView.tsx:184`. Za prvu verziju uputa za Discord ili poziv, a chat kasnije.
 
 ## Faza 2: igrači koji nestanu
-- [ ] **13. [FE] [BE] Izbacivanje iz čekaonice:** domaćin može izbaciti igrača koji je otišao. Riješiti i slučaj iz `docs/backend-todo.md:15` (igrač ostaje u sobi nakon "Igraj ponovno").
-- [ ] **14. [BE] Domaćin nestane u čekaonici ili na kraju igre:** ako samo zatvori aplikaciju, nitko ne može pokrenuti igru. Prijenos domaćina nakon isteka vremena.
-- [ ] **15. [FE] [BE] Domaćin nestane usred igre:** igra ide dalje, ali uživo nestaju glas naratora i gumbi domaćina. Isti prijenos.
+- [x] **13. [FE] [BE] Izbacivanje iz čekaonice:** domaćin može izbaciti igrača koji je otišao. Riješiti i slučaj iz `docs/backend-todo.md:15` (igrač ostaje u sobi nakon "Igraj ponovno").
+- [x] **14. [BE] Domaćin nestane u čekaonici ili na kraju igre:** ako samo zatvori aplikaciju, nitko ne može pokrenuti igru. Prijenos domaćina nakon isteka vremena.
+- [x] **15. [FE] [BE] Domaćin nestane usred igre:** igra ide dalje, ali uživo nestaju glas naratora i gumbi domaćina. Isti prijenos.
 - [ ] **16. [BE] [PRAVILA] Izlazak usred igre:** `docs/pravila-igre.md:54` kaže da igrač ispada, a `backend/.../service/PlayerService.java:181` to odbija, pa igrač ostaje živ bez upravljanja. Odabrati jedno pravilo.
 - [ ] **17. [FE] [BE] Ispražnjen ili promijenjen mobitel:** token je samo na uređaju. Povratak preko koda sobe, uz potvrdu domaćina.
 - [ ] **18. [FE] [QA] Stabilnost veze:** isprobati `discardWebsocketOnCommFailure` u `src/lib/stomp.ts` i wake lock na Androidu i iPhoneu.

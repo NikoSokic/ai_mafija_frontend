@@ -17,6 +17,9 @@ function applyEvent(event: LobbyEvent) {
     case 'HOST_CHANGED':
       store.hostChanged(event.data.hostPlayerId, loadSession()?.playerId ?? null)
       break
+    case 'PLAYER_KICKED':
+      store.playerKicked(event.data.playerId, loadSession()?.playerId ?? null)
+      break
     case 'GAME_STARTED':
       store.gameStarted()
       break

@@ -6,6 +6,7 @@ import type {
   CreateLobbyRequest,
   CreateLobbyResponse,
   GameStateResponse,
+  HeartbeatResponse,
   HostActionRequest,
   JoinLobbyRequest,
   JoinLobbyResponse,
@@ -90,6 +91,7 @@ const ERROR_MESSAGES: Record<string, (code: string) => string> = {
   DEAD_PLAYER: () => 'Više nisi u igri.',
   GAME_IN_PROGRESS: () => 'Igra je u tijeku pa sobu ne možeš napustiti.',
   GAME_NOT_STARTED: () => 'Igra još nije počela.',
+  CANNOT_KICK_SELF: () => 'Domaćin ne može izbaciti sam sebe.',
   NOT_IN_LOBBY: () => 'Nisi igrač u ovoj sobi.',
   PLAYER_NOT_FOUND: () => 'Taj igrač više nije u sobi.',
   INVALID_TOKEN: () => 'Tvoja prijava u sobu više ne vrijedi. Uđi ponovno.',
@@ -144,6 +146,14 @@ export const joinLobby = (code: string, nickname: string, avatarEmoji: string) =
 // Samo u čekaonici; usred igre backend vraća GAME_IN_PROGRESS pa klijent izlazi samo lokalno
 export const leaveLobby = (code: string, { playerId, playerToken }: PlayerAuth) =>
   request<void>(`${lobbyPath(code)}/leave`, post({ playerId, playerToken } satisfies HostActionRequest))
+
+// Samo domaćin, samo u čekaonici: igrač se briše iz sobe i može ući ponovno kodom
+export const kickPlayer = (code: string, { playerId, playerToken }: PlayerAuth, targetPlayerId: number) =>
+  request<void>(`${lobbyPath(code)}/kick`, post({ playerId, playerToken, targetPlayerId }))
+
+// Javljanje svakih ~15 s: backend po tome zna tko je "Nije tu" i je li domaćin još tu
+export const sendHeartbeat = ({ playerId, playerToken }: PlayerAuth) =>
+  request<HeartbeatResponse>('/api/players/heartbeat', post({ playerId, playerToken } satisfies PlayerAuth))
 
 // Samo domaćin; backend traži punu sobu
 export const startLobby = (code: string, { playerId, playerToken }: PlayerAuth) =>
