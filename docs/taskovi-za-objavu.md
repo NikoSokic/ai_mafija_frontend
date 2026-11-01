@@ -37,8 +37,8 @@ Oznake:
 - [x] **22. [OPS] Sigurnosne kopije:** svjesno preskočeno. Baza drži samo sobe i igre u tijeku (task 23 ih briše nakon sat vremena bez aktivnosti), a shema i uloge se vraćaju iz Flyway migracija u repou. Vratiti se na ovo ako se doda računi, statistika ili povijest igara.
 - [x] **23. [BE] [PRAVILA] Čišćenje:** kod je gotov: `LobbyCleanupService` briše sobu u kojoj se nitko nije javio 1 sat; pravilo je u `docs/pravila-igre.md`. Ostalo je deploy.
 - [ ] **24. [BE] Zaštita od navale:** ograničiti broj zahtjeva za stvaranje soba, ulazak i pogađanje kodova, filtrirati nadimke, podesiti Hikari pool prema limitu baze.
-- [ ] **25. [BE] Čišćenje API-ja:** ukloniti `TestController` i isključiti Swagger u produkciji.
-- [ ] **26. [OPS] Praćenje:** Sentry na oba dijela, praćenje dostupnosti i upozorenja.
+- [x] **25. [BE] Čišćenje API-ja:** kod je gotov: `TestController` je obrisan, a Swagger je zadano ugašen (lokalno `SWAGGER_ENABLED=true`, na Renderu se ne postavlja). Ostalo je deploy i provjera da `/swagger-ui/index.html` na produkciji vraća 404.
+- [x] **26. [OPS] Praćenje:** kod je gotov: Sentry na oba dijela, bez tokena igrača u događajima (`SentryConfig`, `src/lib/sentry.ts`). Praćenje dostupnosti svjesno preskočeno. Ostalo je otvoriti Sentry račun s dva projekta, postaviti `SENTRY_DSN` i `SENTRY_ENVIRONMENT=production` na Renderu te `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` na Vercelu, izazvati probnu grešku na oba dijela i uključiti upozorenja na mail.
 - [ ] **27. [QA] Test opterećenja:** botovima (`scripts/bots.mjs`) npr. 50 soba po 8 igrača na produkcijskoj konfiguraciji. WebSocket broker je u memoriji, pa backend radi samo kao jedna instanca.
 
 ## Faza 4: testiranje
@@ -47,7 +47,7 @@ Oznake:
 - [ ] **30. [QA] Stvarne igre:** barem 5 cijelih igara s pravim ljudima. Slučajevi: 4, 8 i 20 igrača; oba načina igre i miješani uređaji; osvježavanje u svakoj fazi; zrakoplovni način na 30 s; izjednačenje; dva Doktora na istoj meti; izlazak domaćina; "Igraj ponovno".
 
 ## Faza 5: objava
-- [ ] **31. [FE] Pravna strana:** politika privatnosti i kontakt (nadimci, IP adrese kod pružatelja usluga). Uz analitiku provjeriti treba li privola.
+- [ ] **31. [FE] Pravna strana:** politika privatnosti i kontakt (nadimci, IP adrese kod pružatelja usluga). Sentry je novi pružatelj usluge koji obrađuje tehničke podatke o greškama. Uz analitiku provjeriti treba li privola.
 - [ ] **32. [OPS] Vlastita domena:** dodati je i u CORS postavke.
 - [ ] **33. [FE] Dijeljenje linka:** Open Graph oznake i slika, manifest, ikone za početni zaslon (`index.html`).
 - [ ] **34. Dokumentacija:** ispraviti README na oba repoa, posebno opis AI naratora i ostatak Vite predloška.

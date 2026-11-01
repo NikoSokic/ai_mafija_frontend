@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { reportError } from '../lib/sentry.ts'
 import { cancelSpeech } from '../lib/speech.ts'
 import { skipNextResume } from '../store/resume.ts'
 import { loadSession } from '../store/session.ts'
@@ -19,6 +20,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(error, info.componentStack)
+    reportError(error, info.componentStack)
     // narator ne smije dalje pričati preko ekrana s greškom
     cancelSpeech()
   }
