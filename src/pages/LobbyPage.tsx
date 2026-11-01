@@ -13,6 +13,7 @@ import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
 import KickPlayerSheet from '../components/KickPlayerSheet.tsx'
 import LeaveRoomSheet from '../components/LeaveRoomSheet.tsx'
+import ReclaimHostSheet from '../components/ReclaimHostSheet.tsx'
 import MeTag from '../components/MeTag.tsx'
 import RoleComposition from '../components/RoleComposition.tsx'
 import RulesSheet from '../components/RulesSheet.tsx'
@@ -272,6 +273,7 @@ function LobbyView({ lobby, me, onJoined, onLost, onOpenRules }: LobbyViewProps)
           onClose={() => setKick((k) => ({ ...k, open: false }))}
         />
       )}
+      {me && amHost && <ReclaimHostSheet code={code} />}
       {toast}
     </Screen>
   )

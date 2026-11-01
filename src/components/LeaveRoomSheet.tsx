@@ -10,10 +10,12 @@ type LeaveRoomSheetProps = {
   onClose: () => void
   /** sesija je već obrisana */
   onLeft: () => void
+  /** igra je u tijeku: izlazak znači ispadanje, bez povratka */
+  inGame?: boolean
 }
 
 // Potvrda izlaska iz sobe: javlja backendu (POST /leave) i briše sesiju na ovom uređaju.
-export default function LeaveRoomSheet({ open, code, onClose, onLeft }: LeaveRoomSheetProps) {
+export default function LeaveRoomSheet({ open, code, onClose, onLeft, inGame = false }: LeaveRoomSheetProps) {
   const [pending, setPending] = useState(false)
   const { toast, show } = useErrorToast()
 
@@ -30,12 +32,16 @@ export default function LeaveRoomSheet({ open, code, onClose, onLeft }: LeaveRoo
       <Sheet
         open={open}
         onClose={onClose}
-        title="Napustiti sobu?"
-        subtitle={`Na ovom uređaju više nećeš biti u sobi ${code}.`}
+        title={inGame ? 'Napustiti igru?' : 'Napustiti sobu?'}
+        subtitle={
+          inGame
+            ? `Ispadaš iz igre u sobi ${code} i ne možeš se vratiti. Tvoja uloga ostaje tajna.`
+            : `Na ovom uređaju više nećeš biti u sobi ${code}.`
+        }
       >
         <div className="flex flex-col gap-2.5">
           <Button onClick={leave} disabled={pending}>
-            Napusti sobu
+            {inGame ? 'Napusti igru' : 'Napusti sobu'}
           </Button>
           <Button variant="secondary" onClick={onClose}>
             Ostani

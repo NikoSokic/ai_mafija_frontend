@@ -26,9 +26,9 @@ Oznake:
 - [x] **13. [FE] [BE] Izbacivanje iz čekaonice:** domaćin može izbaciti igrača koji je otišao. Riješiti i slučaj iz `docs/backend-todo.md:15` (igrač ostaje u sobi nakon "Igraj ponovno").
 - [x] **14. [BE] Domaćin nestane u čekaonici ili na kraju igre:** ako samo zatvori aplikaciju, nitko ne može pokrenuti igru. Prijenos domaćina nakon isteka vremena.
 - [x] **15. [FE] [BE] Domaćin nestane usred igre:** igra ide dalje, ali uživo nestaju glas naratora i gumbi domaćina. Isti prijenos.
-- [ ] **16. [BE] [PRAVILA] Izlazak usred igre:** `docs/pravila-igre.md:54` kaže da igrač ispada, a `backend/.../service/PlayerService.java:181` to odbija, pa igrač ostaje živ bez upravljanja. Odabrati jedno pravilo.
-- [ ] **17. [FE] [BE] Ispražnjen ili promijenjen mobitel:** token je samo na uređaju. Povratak preko koda sobe, uz potvrdu domaćina.
-- [ ] **18. [FE] [QA] Stabilnost veze:** isprobati `discardWebsocketOnCommFailure` u `src/lib/stomp.ts` i wake lock na Androidu i iPhoneu.
+- [x] **16. [BE] [PRAVILA] Izlazak usred igre:** igrač koji izađe usred igre ispada (`LEFT`), uloga ostaje tajna, provjerava se pobjednik, a glasanje i uvod prve noći ne čekaju na njega. Backend: `PlayerService.leaveRunningGame`; frontend: potvrda "Napustiti igru?" i prikaz kao "Napustio igru".
+- [x] **17. [FE] [BE] Ispražnjen ili promijenjen mobitel:** token je samo na uređaju. Povratak preko koda sobe i nadimka, uz potvrdu domaćina (zahtjev vrijedi 2 min). Treba pokrenuti `db/migrations/006_povratak_igraca.sql` u Supabaseu. Ostalo je isprobati u pravoj igri na dva uređaja.
+- [ ] **18. [FE] [QA] Stabilnost veze:** kod je gotov (`discardWebsocketOnCommFailure`, heartbeat, ponovno spajanje pri povratku u aplikaciju). Ostalo je proći `docs/test-veze.md` na pravom Androidu i iPhoneu.
 
 ## Faza 3: produkcija
 - [ ] **19. [OPS] Hosting:** Render Free spava i budi se do oko 50 s. Plaćeni plan u regiji blizu baze; provjeriti i uvjete i cijene Supabasea.

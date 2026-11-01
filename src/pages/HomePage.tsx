@@ -7,6 +7,7 @@ import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
 import JoinSheet from '../components/JoinSheet.tsx'
 import LeaveRoomSheet from '../components/LeaveRoomSheet.tsx'
+import ReclaimSheet from '../components/ReclaimSheet.tsx'
 import RulesSheet from '../components/RulesSheet.tsx'
 import { Screen, ScreenBody, ScreenFooter, ScreenTop } from '../components/Screen.tsx'
 import Skyline from '../components/Skyline.tsx'
@@ -28,7 +29,7 @@ const CITY_ON = [0, 2, 3, 5, 7]
 // Boja kruga avatara na Početnoj (u igri se računa iz id-a igrača)
 const AVATAR_HUE = 350
 
-type OpenSheet = 'rules' | 'join' | 'leave' | null
+type OpenSheet = 'rules' | 'join' | 'leave' | 'reclaim' | null
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -43,6 +44,7 @@ export default function HomePage() {
   const [introSeen, setIntroSeen] = useState(loadIntroSeen)
   // Kartica čeka provjeru pri pokretanju, da ne bljesne prije automatskog ulaska u sobu
   const resumeDone = useResumeStore((s) => s.status === 'done')
+  const resumeStatus = useResumeStore((s) => (s.lobbyCode === session?.lobbyCode ? s.lobbyStatus : null))
   const serverStatus = useServerStore((s) => s.status)
   const serverReady = serverStatus === 'ready'
   const nickRef = useRef<HTMLInputElement>(null)
@@ -232,15 +234,22 @@ export default function HomePage() {
               Javne sobe
             </Button>
           </div>
+          {!session && (
+            <Button variant="ghost" size="sm" disabled={!serverReady} onClick={() => setSheet('reclaim')}>
+              Vrati se u igru na novom mobitelu
+            </Button>
+          )}
         </ScreenFooter>
       </Screen>
 
       <RulesSheet open={sheet === 'rules'} onClose={closeSheet} />
       <JoinSheet open={sheet === 'join'} onClose={closeSheet} nickname={profile.nickname.trim()} emoji={profile.emoji} />
+      <ReclaimSheet open={sheet === 'reclaim'} onClose={closeSheet} nickname={profile.nickname.trim()} />
       {session && (
         <LeaveRoomSheet
           open={sheet === 'leave'}
           code={session.lobbyCode}
+          inGame={resumeStatus === 'IN_PROGRESS'}
           onClose={closeSheet}
           onLeft={() => {
             setSession(null)

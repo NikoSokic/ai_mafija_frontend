@@ -15,6 +15,7 @@ import PhaseTransition from '../components/game/PhaseTransition.tsx'
 import RoleReveal from '../components/game/RoleReveal.tsx'
 import VoteView from '../components/game/VoteView.tsx'
 import { Icon } from '../components/icons.tsx'
+import ReclaimHostSheet from '../components/ReclaimHostSheet.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import Toast, { Spinner } from '../components/Toast.tsx'
 import { ROLES, type RoleKey } from '../data/roles.ts'
@@ -447,6 +448,7 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     <ThemeRoot theme={theme}>
       {content}
       {errorToast}
+      {isHost && <ReclaimHostSheet code={code} />}
       {!content && !loadError && !transition && (
         <main
           role="status"

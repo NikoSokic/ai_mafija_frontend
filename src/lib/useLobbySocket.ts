@@ -32,6 +32,12 @@ function applyEvent(event: LobbyEvent) {
     case 'VOTE_RESOLVED':
       store.voteResolved(event.data)
       break
+    case 'RECLAIM_REQUESTED':
+      store.reclaimRequested(event.data)
+      break
+    case 'RECLAIM_RESOLVED':
+      store.reclaimResolved(event.data.requestId)
+      break
     case 'REMATCH':
       store.clearGame(event.lobbyCode)
       break

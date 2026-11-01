@@ -7,6 +7,7 @@ import type {
   LobbyRoleResponse,
   LobbyStatus,
   PublicGameStateResponse,
+  ReclaimPending,
   ResolveVoteResponse,
 } from '../api/types.ts'
 import type { ConnectionStatus } from '../lib/stomp.ts'
@@ -49,6 +50,8 @@ interface GameStore {
   awayIds: number[]
   /** raste kad domaćin izbaci ovaj uređaj iz sobe (PLAYER_KICKED) */
   kickedMe: number
+  /** igrači koji traže povratak na novom uređaju; domaćin o njima odlučuje */
+  reclaimRequests: ReclaimPending[]
 
   /** prazni stanje kad se otvori druga soba; za istu sobu ga ostavlja */
   reset: (code: string) => void
@@ -63,6 +66,10 @@ interface GameStore {
   /** odgovor na heartbeat: tko je "Nije tu" */
   setAway: (awayIds: number[]) => void
   playerKicked: (playerId: number, myId: number | null) => void
+  /** odgovor na heartbeat nosi cijeli popis, pa zamjenjuje stari */
+  setReclaims: (requests: ReclaimPending[]) => void
+  reclaimRequested: (request: ReclaimPending) => void
+  reclaimResolved: (requestId: number) => void
   gameStarted: () => void
   gameStateChanged: (state: PublicGameStateResponse) => void
   gameFinished: (state: PublicGameStateResponse) => void
@@ -117,6 +124,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     becameHost: 0,
     awayIds: [],
     kickedMe: 0,
+    reclaimRequests: [],
 
     reset: (code) => {
       if (get().lobby?.code === code) return
@@ -128,6 +136,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         voteResult: null,
         leftIds: [],
         awayIds: [],
+        reclaimRequests: [],
       })
     },
     setLobby: (details) => {
@@ -158,8 +167,17 @@ export const useGameStore = create<GameStore>((set, get) => {
     playerJoined: (player) =>
       updateLobby((lobby) => ({ players: mergePlayers(lobby.players, [player], get().leftIds) })),
     playerLeft: (playerId, newHostPlayerId, myId) => {
-      set({ leftIds: [...get().leftIds, playerId] })
-      updateLobby((lobby) => ({ players: lobby.players.filter((p) => p.id !== playerId) }))
+      if (get().lobby?.status === 'IN_PROGRESS') {
+        // usred igre igrač ispada (LEFT), ali ostaje na popisu kao ugašen prozor
+        updateLobby((lobby) => ({
+          players: lobby.players.map((p) =>
+            p.id === playerId && p.alive ? { ...p, alive: false, eliminatedHow: 'LEFT' } : p,
+          ),
+        }))
+      } else {
+        set({ leftIds: [...get().leftIds, playerId] })
+        updateLobby((lobby) => ({ players: lobby.players.filter((p) => p.id !== playerId) }))
+      }
       if (newHostPlayerId !== null) get().hostChanged(newHostPlayerId, myId)
     },
     hostChanged: (hostPlayerId, myId) => {
@@ -174,6 +192,13 @@ export const useGameStore = create<GameStore>((set, get) => {
     playerKicked: (playerId, myId) => {
       if (playerId === myId) set({ kickedMe: get().kickedMe + 1 })
     },
+    setReclaims: (requests) => set({ reclaimRequests: requests }),
+    reclaimRequested: (request) => {
+      const others = get().reclaimRequests.filter((r) => r.requestId !== request.requestId)
+      set({ reclaimRequests: [...others, request] })
+    },
+    reclaimResolved: (requestId) =>
+      set({ reclaimRequests: get().reclaimRequests.filter((r) => r.requestId !== requestId) }),
     gameStarted: () => updateLobby(() => ({ status: 'IN_PROGRESS' })),
     gameStateChanged: applyPublicState,
     gameFinished: applyPublicState,

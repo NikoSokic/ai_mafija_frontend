@@ -248,7 +248,7 @@ Sesija se sprema u `localStorage` kao `aimafija.session = { playerId, playerToke
   - `GET /api/lobbies/{code}` → `{id, code, status, maxPlayers, phase, roundNumber, players:[{id, nickname, alive, host, avatarEmoji, …}], roles:[{roleId, roleName, count}], hostPlayerId, mode, isPublic, voiceEnabled}`
   - STOMP `SUBSCRIBE /topic/lobby/{code}` → `{type, message, lobbyCode, data}`; `PLAYER_JOINED` (data = igrač) → dodaj; `PLAYER_LEFT {playerId, nickname, newHostPlayerId}` → makni igrača; `HOST_CHANGED {hostPlayerId}` → pomakni krunu (novi domaćin vidi Toast "Sad si ti domaćin."); `GAME_STARTED` → `/igra/:code`
   - `POST /api/lobbies/{code}/start` (backend traži punu sobu)
-  - napuštanje: `POST /api/lobbies/{code}/leave {playerId, playerToken}`; usred igre 409 `GAME_IN_PROGRESS` pa klijent izlazi samo lokalno
+  - napuštanje: `POST /api/lobbies/{code}/leave {playerId, playerToken}`; usred igre igrač ispada (`eliminatedHow: "LEFT"`), uloga ostaje tajna, a klijent briše sesiju
   - ulazak kodom: `POST /api/lobbies/{code}/join {nickname, avatarEmoji}` → `{playerId, nickname, alive, lobbyId, lobbyCode, playerToken}`
   - poruke grešaka backenda prevedi u UI: "Lobby ne postoji." → "Soba K7M2QZ ne postoji. Provjeri kod s domaćinom."; nadimak zauzet → "Netko u sobi već koristi taj nadimak."; puna → "Soba je puna."; započela → "Igra u toj sobi je već počela."
 

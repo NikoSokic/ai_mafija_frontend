@@ -371,6 +371,40 @@ export interface HeartbeatResponse {
   hostPlayerId: number | null
   /** igrači koji se ne javljaju 45 s ("Nije tu"), bez onoga tko se javio */
   awayPlayerIds: number[]
+  /** zahtjevi za povratak na novom uređaju koji čekaju domaćina; samo domaćinu, inače prazno */
+  reclaimRequests: ReclaimPending[]
+}
+
+/** Zahtjev da se igrač vrati na novom uređaju; domaćin ga odobrava (događaj RECLAIM_REQUESTED) */
+export interface ReclaimPending {
+  requestId: number
+  playerId: number
+  nickname: string
+  avatarEmoji: string | null
+  expiresAt: string
+}
+
+export interface ReclaimCreatedResponse {
+  requestId: number
+  /** tajna novog uređaja; njome dohvaća ishod i novi token */
+  claimSecret: string
+  expiresAt: string
+}
+
+/** APPROVED stiže jednom i nosi novi token; kasnije isti zahtjev vraća CLAIMED */
+export interface ReclaimStatusResponse {
+  status: 'PENDING' | 'APPROVED' | 'DENIED' | 'EXPIRED' | 'CLAIMED'
+  playerId: number | null
+  nickname: string | null
+  alive: boolean | null
+  lobbyId: number | null
+  lobbyCode: string | null
+  playerToken: string | null
+}
+
+export interface ReclaimResolvedResponse {
+  requestId: number
+  status: 'APPROVED' | 'DENIED'
 }
 
 export interface PlayerKickedResponse {
@@ -414,3 +448,7 @@ export type LobbyEvent =
   | LobbyEventOf<'VOTE_CAST', { votedCount: number; eligibleCount: number }>
   /** domaćin je vratio završenu igru u čekaonicu iste sobe */
   | LobbyEventOf<'REMATCH', null>
+  /** igrač traži povratak na novom uređaju; događaj je za domaćina */
+  | LobbyEventOf<'RECLAIM_REQUESTED', ReclaimPending>
+  /** domaćin je odlučio o zahtjevu (pitanje se miče i s njegovih drugih uređaja) */
+  | LobbyEventOf<'RECLAIM_RESOLVED', ReclaimResolvedResponse>

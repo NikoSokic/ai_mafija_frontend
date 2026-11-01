@@ -14,6 +14,8 @@ import type {
   PlayerAuth,
   PlayerReadyResponse,
   PublicLobbyResponse,
+  ReclaimCreatedResponse,
+  ReclaimStatusResponse,
   ReconnectRequest,
   ReconnectResponse,
   ResolveNightResponse,
@@ -111,6 +113,9 @@ const ERROR_MESSAGES: Record<string, (code: string) => string> = {
   TIED_PLAYER_CANNOT_VOTE: () => 'Ti si u izjednačenju pa ovaj put ne glasaš.',
   CANNOT_VOTE_SELF: () => 'Ne možeš glasati za sebe.',
   ABSTAIN_NOT_ALLOWED: () => 'U ponovnom glasanju odaberi jednog od izjednačenih igrača.',
+  // povratak na novom uređaju
+  RECLAIM_NOT_FOUND: () => 'Zahtjev za povratak je istekao. Pošalji ga ponovno.',
+  RECLAIM_NOT_ALLOWED: () => 'Taj igrač je napustio sobu pa se ne može vratiti.',
 }
 
 // Greška za prikaz u sučelju. Sirova poruka backenda nije za igrače, pa ide samo u konzolu.
@@ -143,13 +148,24 @@ export const joinLobby = (code: string, nickname: string, avatarEmoji: string) =
     post({ nickname, avatarEmoji } satisfies JoinLobbyRequest),
   )
 
-// Samo u čekaonici; usred igre backend vraća GAME_IN_PROGRESS pa klijent izlazi samo lokalno
+// U čekaonici igrač nestaje iz sobe, a usred igre ispada (LEFT) i gubi token
 export const leaveLobby = (code: string, { playerId, playerToken }: PlayerAuth) =>
   request<void>(`${lobbyPath(code)}/leave`, post({ playerId, playerToken } satisfies HostActionRequest))
 
 // Samo domaćin, samo u čekaonici: igrač se briše iz sobe i može ući ponovno kodom
 export const kickPlayer = (code: string, { playerId, playerToken }: PlayerAuth, targetPlayerId: number) =>
   request<void>(`${lobbyPath(code)}/kick`, post({ playerId, playerToken, targetPlayerId }))
+
+// Povratak na novom uređaju: igrač pošalje nadimak, domaćin odobri, a novi uređaj tajnom dohvati novi token
+export const requestReclaim = (code: string, nickname: string) =>
+  request<ReclaimCreatedResponse>(`${lobbyPath(code)}/reclaim`, post({ nickname }))
+
+export const getReclaimStatus = (code: string, requestId: number, secret: string) =>
+  request<ReclaimStatusResponse>(`${lobbyPath(code)}/reclaim/${requestId}?secret=${encodeURIComponent(secret)}`)
+
+// Samo domaćin
+export const decideReclaim = (code: string, { playerId, playerToken }: PlayerAuth, requestId: number, approve: boolean) =>
+  request<void>(`${lobbyPath(code)}/reclaim/${requestId}/decision`, post({ playerId, playerToken, approve }))
 
 // Javljanje svakih ~15 s: backend po tome zna tko je "Nije tu" i je li domaćin još tu
 export const sendHeartbeat = ({ playerId, playerToken }: PlayerAuth) =>

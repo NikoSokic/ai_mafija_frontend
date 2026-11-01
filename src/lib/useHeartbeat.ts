@@ -24,7 +24,10 @@ export function useHeartbeat(session: Session | null, onLost: () => void) {
     const beat = () => {
       sendHeartbeat({ playerId, playerToken })
         .then((res) => {
-          if (active) useGameStore.getState().setAway(res.awayPlayerIds)
+          if (!active) return
+          useGameStore.getState().setAway(res.awayPlayerIds)
+          // stariji backend polje nema; novi ga šalje samo domaćinu
+          useGameStore.getState().setReclaims(res.reclaimRequests ?? [])
         })
         .catch((e: unknown) => {
           // bez veze se samo pokuša ponovno; 401 i 404 znače da igrača u sobi više nema

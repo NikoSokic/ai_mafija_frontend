@@ -1,8 +1,8 @@
 import { ApiError, describeError, leaveLobby } from '../api/rest.ts'
 import { clearSession, loadSession } from '../store/session.ts'
 
-// Javi backendu da igrač odlazi iz sobe i obriše sesiju na ovom uređaju. Greške koje znače "tu više nisi"
-// (usred igre, token ne vrijedi, soba ne postoji) završavaju lokalnim izlaskom; `message` je samo kad
+// Javi backendu da igrač odlazi iz sobe (usred igre ispada) i obriše sesiju na ovom uređaju. Greške koje
+// znače "tu više nisi" (token ne vrijedi, soba ne postoji) završavaju lokalnim izlaskom; `message` je samo kad
 // izlazak nije uspio (nema veze, greška poslužitelja) i igrač ostaje u sobi.
 export async function leaveRoom(code: string): Promise<{ ok: true } | { ok: false; message: string }> {
   const session = loadSession()

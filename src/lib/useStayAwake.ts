@@ -31,11 +31,20 @@ export function useStayAwake(onWake: () => void) {
       onWake()
     }
 
+    // iPhone vraća stranicu iz bfcachea bez visibilitychange; tada se stanje također treba dohvatiti
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) onVisibility()
+    }
+
     acquire()
     document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pageshow', onPageShow)
+    window.addEventListener('online', onWake)
     return () => {
       active = false
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pageshow', onPageShow)
+      window.removeEventListener('online', onWake)
       void lock?.release()
     }
   }, [onWake])

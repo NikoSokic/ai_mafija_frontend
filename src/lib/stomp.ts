@@ -52,6 +52,11 @@ function open(code: string): Connection {
     client: new Client({
       webSocketFactory: () => new SockJS(WS_URL),
       reconnectDelay: 5000,
+      // Na mobitelu veza često ostane "otvorena" iako ništa ne prolazi (zaključan ekran, promjena mreže).
+      // Heartbeat to otkrije za ~10 s, a odbacivanje utičnice čini da ponovno spajanje krene odmah.
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      discardWebsocketOnCommFailure: true,
       // Pretplata se radi pri svakom spoju: nakon prekida stara ne postoji, pa ih nikad nema dvije
       onConnect: () => {
         conn.client.subscribe(`/topic/lobby/${code}`, (message) => {
@@ -87,5 +92,17 @@ export function retryConnections() {
   connections.forEach((conn) => {
     if (conn.status === 'connected') return
     void conn.client.deactivate().then(() => conn.client.activate())
+  })
+}
+
+// Povratak u aplikaciju, povratak mreže i povratak iz bfcachea (iPhone): ne čeka se 5 s do sljedećeg
+// automatskog pokušaja, nego se nespojene veze odmah pokušaju ponovno spojiti
+if (typeof window !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') retryConnections()
+  })
+  window.addEventListener('online', retryConnections)
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) retryConnections()
   })
 }
