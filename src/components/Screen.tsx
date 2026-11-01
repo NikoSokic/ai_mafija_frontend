@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { cx } from '../lib/cx.ts'
 import { riseItem, riseList } from '../lib/motion.ts'
+import FullscreenButton from './FullscreenButton.tsx'
 
 // Okvir ekrana iz prototipa (.screen / .top / .body / .cta): zaglavlje, sadržaj koji se skrola
 // i fiksno podnožje. Djeca s varijantom riseItem ulaze jedno za drugim (spec 8).
@@ -23,7 +24,10 @@ export function Screen({ children, className = '' }: ScreenProps) {
 
 export function ScreenTop({ children }: { children: ReactNode }) {
   return (
-    <div className="relative z-[3] flex h-[calc(60px+env(safe-area-inset-top))] shrink-0 items-center gap-1.5 pt-[env(safe-area-inset-top)] pr-2.5 pl-2">{children}</div>
+    <div className="relative z-[3] flex h-[calc(60px+env(safe-area-inset-top))] shrink-0 items-center gap-1.5 pt-[env(safe-area-inset-top)] pr-2.5 pl-2">
+      {children}
+      <FullscreenButton />
+    </div>
   )
 }
 
