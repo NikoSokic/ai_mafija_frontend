@@ -32,6 +32,7 @@ import { avatarOf } from '../lib/playerLook.ts'
 import type { Theme } from '../lib/theme.ts'
 import { useHostNotice } from '../lib/useHostNotice.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
+import { useStayAwake } from '../lib/useStayAwake.ts'
 import { useGameStore } from '../store/gameStore.ts'
 import { loadNarrated, markNarrated } from '../store/narrated.ts'
 import type { Mode } from '../store/roomSettings.ts'
@@ -216,9 +217,19 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     setPrevPublic(publicState)
     if (publicState && publicState.lobbyCode === code) setSnap(publicState)
   }
+  // Noću se privatno stanje (potez, mete tima) mijenja uz svaki događaj. Danju i na glasanju ga igrač
+  // ne koristi (glasovi su javni), pa se ponovno dohvaća samo kad se promijeni faza ili runda;
+  // inače bi svaki glas značio po jedan GET svih igrača.
+  const refreshKey =
+    publicState?.phase === 'NIGHT'
+      ? publicState
+      : `${publicState?.lobbyStatus}:${publicState?.phase}:${publicState?.roundNumber}`
   useEffect(() => {
     if (publicState && publicState.lobbyCode === code) refresh()
-  }, [publicState, code, refresh])
+    // publicState se čita samo kao uvjet; okidač je refreshKey
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey, code, refresh])
+  useStayAwake(refresh)
 
   // VOTE_RESOLVED (ili odgovor na zadnji glas): ishod se pokaže samo igraču koji gleda dan.
   // Lokalna varijabla jer setOutcome vrijedi tek u idućem renderu, a o njoj ovisi i zadržavanje ekrana.
