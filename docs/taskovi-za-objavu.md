@@ -13,14 +13,14 @@ Oznake:
 
 ## Faza 1: greške koje se vide na snimci
 - [ ] **4. [FE] Glas naratora:** bez hrvatskog glasa na uređaju narator samo piše tekst (`src/lib/speech.ts`), a uživo govori samo domaćinov mobitel. Isprobati na uređajima ekipe; sigurnija opcija je zvuk generiran na serveru.
-- [ ] **5. [FE] Vrijeme za odabir u prvoj noći:** uvod i buđenje Mafije traju oko 8,5 s i bez glasa (izračun iz koda), a predviđeno je 6 s, pa dio od 20 s za odabir nestaje. Izmjeriti u igri, pa skratiti tekstove ili preskočiti uvod u prvoj noći.
-- [ ] **6. [FE] Stranica 404:** `src/App.tsx` nema rutu za nepoznat URL, pa je ekran prazan.
-- [ ] **7. [FE] Error Boundary:** greška u Reactu sada ostavlja bijeli ekran. Dodati zamjenski ekran s gumbom za povratak u igru.
-- [ ] **8. [BE] Kod sobe bez sličnih znakova:** izbaciti O, 0, I i 1 iz `LOBBY_CODE_CHARACTERS` (`backend/.../service/LobbyService.java:40`).
-- [ ] **9. [FE] [BE] [PRAVILA] Sastav bez mafije:** tražiti barem jednog člana tima mafije (`src/pages/CreateRoomPage.tsx:101` i backend).
-- [ ] **10. [FE] [PRAVILA] Dama:** pravila i backend dopuštaju da utiša sebe, ali `src/components/game/NightView.tsx:91` to brani. Ukloniti i staru oznaku "Meta mafije" (redak 93).
-- [ ] **11. [FE] Pravila u aplikaciji:** bolje objasniti "Suzdržan" i ponovno glasanje (`src/components/RulesSheet.tsx`) i dodati kratak uvod za prvu igru.
-- [ ] **12. [FE] "Chat stiže uskoro":** ukloniti iz `src/components/game/DayView.tsx:184`. Za prvu verziju uputa za Discord ili poziv, a chat kasnije.
+- [x] **5. [FE] Vrijeme za odabir u prvoj noći:** uvod i buđenje Mafije traju oko 8,5 s i bez glasa (izračun iz koda), a predviđeno je 6 s, pa dio od 20 s za odabir nestaje. Izmjeriti u igri, pa skratiti tekstove ili preskočiti uvod u prvoj noći.
+- [x] **6. [FE] Stranica 404:** `src/App.tsx` nema rutu za nepoznat URL, pa je ekran prazan.
+- [x] **7. [FE] Error Boundary:** greška u Reactu sada ostavlja bijeli ekran. Dodati zamjenski ekran s gumbom za povratak u igru.
+- [x] **8. [BE] Kod sobe bez sličnih znakova:** izbaciti O, 0, I i 1 iz `LOBBY_CODE_CHARACTERS` (`backend/.../service/LobbyService.java:40`).
+- [x] **9. [FE] [BE] [PRAVILA] Sastav bez mafije:** tražiti barem jednog člana tima mafije (`src/pages/CreateRoomPage.tsx:101` i backend).
+- [x] **10. [FE] [PRAVILA] Dama:** pravila i backend dopuštaju da utiša sebe, ali `src/components/game/NightView.tsx:91` to brani. Ukloniti i staru oznaku "Meta mafije" (redak 93).
+- [x] **11. [FE] Pravila u aplikaciji:** bolje objasniti "Suzdržan" i ponovno glasanje (`src/components/RulesSheet.tsx`) i dodati kratak uvod za prvu igru.
+- [x] **12. [FE] "Chat stiže uskoro":** ukloniti iz `src/components/game/DayView.tsx:184`. Za prvu verziju uputa za Discord ili poziv, a chat kasnije.
 
 ## Faza 2: igrači koji nestanu
 - [ ] **13. [FE] [BE] Izbacivanje iz čekaonice:** domaćin može izbaciti igrača koji je otišao. Riješiti i slučaj iz `docs/backend-todo.md:15` (igrač ostaje u sobi nakon "Igraj ponovno").

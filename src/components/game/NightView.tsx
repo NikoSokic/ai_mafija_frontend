@@ -85,12 +85,12 @@ export default function NightView({
   const nicknameOf = (id: number) => players.find((p) => p.id === id)?.nickname ?? '?'
 
   // Zašto se igrač ne može odabrati; null = može. Mete određuje backend (targetPlayerIds),
-  // a sebe igrač bira samo kad to backend dopušta i kad ima smisla (Doktor, kao u prototipu).
+  // pa sebe igrač bira kad to backend dopušta (Doktor štiti sebe, Dama utišava sebe).
   function tagFor(id: number, a: AvailableActionResponse): string | null {
     const allowed = a.targetPlayerIds.includes(id)
-    if (id === me.playerId) return a.type === 'SAVE' && allowed ? null : 'Ti'
+    if (id === me.playerId) return allowed ? null : 'Ti'
     if (a.type === 'KILL' && me.teammates.some((t) => t.playerId === id)) return 'Tvoj tim'
-    if (!allowed) return a.type === 'SILENCE' ? 'Meta mafije' : 'Nedostupno'
+    if (!allowed) return 'Nedostupno'
     return null
   }
 

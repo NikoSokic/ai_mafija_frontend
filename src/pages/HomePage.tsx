@@ -15,6 +15,7 @@ import { Spinner } from '../components/Toast.tsx'
 import { DEFAULT_EMOJI, EMOJIS } from '../data/emojis.ts'
 import { cx } from '../lib/cx.ts'
 import { EASE_OUT, riseItem } from '../lib/motion.ts'
+import { loadIntroSeen, saveIntroSeen } from '../store/intro.ts'
 import { loadProfile, saveProfile, type Profile } from '../store/profile.ts'
 import { roomPath, useResumeStore } from '../store/resume.ts'
 import { retryWake, useServerStore } from '../store/server.ts'
@@ -39,6 +40,7 @@ export default function HomePage() {
   const [nickError, setNickError] = useState(false)
   const [sheet, setSheet] = useState<OpenSheet>(null)
   const [session, setSession] = useState(loadSession)
+  const [introSeen, setIntroSeen] = useState(loadIntroSeen)
   // Kartica čeka provjeru pri pokretanju, da ne bljesne prije automatskog ulaska u sobu
   const resumeDone = useResumeStore((s) => s.status === 'done')
   const serverStatus = useServerStore((s) => s.status)
@@ -62,6 +64,12 @@ export default function HomePage() {
   }
 
   const closeSheet = () => setSheet(null)
+
+  // Poziv za prvu igru nestaje čim ga igrač otvori ili odbaci
+  function dismissIntro() {
+    saveIntroSeen()
+    setIntroSeen(true)
+  }
 
   return (
     <ThemeRoot theme="night">
@@ -186,6 +194,29 @@ export default function HomePage() {
           )}
 
           {resumeDone && session &&<ResumeCard session={session} onLeave={() => setSheet('leave')} />}
+
+          {!introSeen && !session && (
+            <motion.section variants={riseItem} className="mt-6 rounded-card border border-line bg-surface p-4">
+              <h3 className="text-[17px] font-semibold tracking-[-.01em]">Prvi put igraš?</h3>
+              <p className="mt-1 text-[13px] leading-[1.45] text-muted">
+                Pročitaj u minuti kako teče runda i što radi koja uloga.
+              </p>
+              <div className="mt-3.5 flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    dismissIntro()
+                    setSheet('rules')
+                  }}
+                >
+                  Kako se igra
+                </Button>
+                <Button size="sm" variant="ghost" onClick={dismissIntro}>
+                  Ne treba
+                </Button>
+              </div>
+            </motion.section>
+          )}
         </ScreenBody>
 
         <Skyline players={CITY} stateOf={(_, i) => (CITY_ON.includes(i) ? 'on' : 'off')} />

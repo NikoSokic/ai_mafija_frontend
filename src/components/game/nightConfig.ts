@@ -13,7 +13,7 @@ const TEXTS: Record<ActionType, NightText> = {
   },
   SILENCE: {
     question: 'Koga utišavaš za sutra?',
-    hint: 'Utišani igrač tijekom dana ne smije govoriti ni glasati.',
+    hint: 'Utišani igrač tijekom dana ne smije govoriti ni glasati. Možeš utišati i sebe.',
     verb: 'Utišavaš:',
   },
   SAVE: {

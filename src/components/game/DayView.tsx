@@ -177,11 +177,11 @@ export default function DayView({ code, round, role, mode, session, game, isHost
         </Section>
 
         {mode === 'online' && (
-          // mjesto za tekstualni chat (spec 6.7) – ne radi se sada
+          // umjesto tekstualnog chata (spec 6.7) rasprava ide u glasovnom pozivu izvan aplikacije
           <Section>
-            <div className="flex h-12 items-center gap-2.5 rounded-[14px] border border-line bg-surface px-3.5 text-sm text-muted">
-              <Icon name="chat" size={18} />
-              Chat stiže uskoro
+            <div className="flex items-center gap-2.5 rounded-[14px] border border-line bg-surface px-3.5 py-3 text-sm leading-[1.45] text-muted">
+              <Icon name="chat" size={18} className="shrink-0" />
+              Raspravljajte u pozivu. Utišani igrač isključuje mikrofon.
             </div>
           </Section>
         )}

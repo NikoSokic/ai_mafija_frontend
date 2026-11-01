@@ -195,6 +195,11 @@ function LobbyView({ lobby, me, onJoined, onOpenRules }: LobbyViewProps) {
               {voiceEnabled ? 'Narator s glasom' : 'Narator bez glasa'}
             </Chip>
           </motion.div>
+          {mode === 'ONLINE' && (
+            <motion.p variants={riseItem} className="mx-auto mt-3.5 max-w-[34ch] text-[13px] leading-[1.45] text-muted">
+              Prije početka otvorite poziv na Discordu ili WhatsAppu da se čujete tijekom rasprave.
+            </motion.p>
+          )}
         </div>
 
         <Section title="Igrači" aside={`${players.length} od ${maxPlayers}`}>

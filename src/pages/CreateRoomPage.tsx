@@ -98,7 +98,9 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
   const mafia = available.reduce((a, r) => a + (ROLES[r.key].team === 'mafia' ? counts[r.key] : 0), 0)
   const diff = maxPlayers - sum
   const canFillTown = available.some((r) => r.key === 'Građanin')
-  const canSubmit = roles.status === 'ready' && diff === 0 && !sending
+  // Backend odbija sastav u kojem tim mafije nije strogo manji od ostalih (docs/pravila-igre.md)
+  const mafiaTooBig = mafia * 2 >= maxPlayers
+  const canSubmit = roles.status === 'ready' && diff === 0 && !mafiaTooBig && !sending
 
   // Ručna izmjena uloge. Ako se raspored opet poklopi s preporukom, uloge ponovno prate broj igrača.
   function setCount(key: RoleKey, value: number) {
@@ -231,7 +233,11 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
 
         <ScreenFooter className="border-t border-line bg-bg">
           {roles.status === 'ready' && (
-            <SumLine diff={diff} onFillTown={canFillTown ? () => setCount('Građanin', counts.Građanin + diff) : undefined} />
+            <SumLine
+              diff={diff}
+              mafiaTooBig={mafiaTooBig}
+              onFillTown={canFillTown ? () => setCount('Građanin', counts.Građanin + diff) : undefined}
+            />
           )}
           {toast}
           <Button disabled={!canSubmit} onClick={submit}>
@@ -345,18 +351,20 @@ function TeamBalance({ mafia, town }: { mafia: number; town: number }) {
 // 1 uloga, 2–4 uloge, 5 i više uloga (razlika je najviše 19)
 const rolesWord = (n: number) => (n === 1 ? 'uloga' : n < 5 ? 'uloge' : 'uloga')
 
-type SumLineProps = { diff: number; onFillTown?: () => void }
+type SumLineProps = { diff: number; mafiaTooBig: boolean; onFillTown?: () => void }
 
 // Stanje zbroja uloga u podnožju. Tekst je u istom role="status" elementu da ga čitač ekrana najavi.
-function SumLine({ diff, onFillTown }: SumLineProps) {
-  const ok = diff === 0
+function SumLine({ diff, mafiaTooBig, onFillTown }: SumLineProps) {
+  const ok = diff === 0 && !mafiaTooBig
   return (
     <div className={cx('flex min-h-6 items-center gap-2.5 text-sm', ok ? 'text-role-doktor' : 'text-accent')}>
       <Icon name={ok ? 'check' : 'info'} size={18} strokeWidth={ok ? 2.2 : 1.8} />
       <span role="status">
         {ok
           ? 'Sve uloge su raspoređene'
-          : diff > 0
+          : diff === 0
+            ? 'Tim mafije mora biti manji od ostalih igrača'
+            : diff > 0
             ? `Fali još ${diff} ${rolesWord(diff)}`
             : `Previše uloga: makni ${-diff}`}
       </span>

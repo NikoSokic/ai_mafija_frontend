@@ -2,6 +2,12 @@
 
 Dogovorena pravila (listopad 2026.). Backend ih provodi (`ai_mafia_backend`, konstante u `service/GameRules.java`), a frontend ih samo prikazuje.
 
+## Sastav uloga
+
+- Sastav mora imati barem jednu Mafiju (sama Dama ne dolazi u obzir).
+- Tim mafije (Mafia, Dama) mora biti strogo manji od ostalih igrača. Sastav u kojem ih je jednako ili više odbija se pri stvaranju sobe, jer bi igra bila završena prije početka.
+- Provjerava se samo pri stvaranju sobe.
+
 ## Tijek runde
 
 1. **Noć**: uloge se bude jedna po jedna i tajno biraju metu.

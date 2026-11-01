@@ -290,7 +290,7 @@ Redoslijed buđenja (backend): MAFIA → DAMA → Doktor → Policajac → Novin
 - Kartica "Što se dogodilo noćas": ubijeni (sivi avatar, lubanja), utišani (značka), ili "Nitko nije stradao" (štit u boji doktora).
 - Rasprava: TimerRing (zadano 2:30); domaćin ima +30 s i Preskoči.
 - "U igri 5 od 8": popis živih (kruna, oznaka utišan), ispod "Ispali: …".
-- Online način: mjesto za chat ("Chat stiže uskoro") – ne implementirati sada.
+- Online način: umjesto chata stoji uputa da se rasprava vodi u glasovnom pozivu (Discord, WhatsApp); isti savjet piše u čekaonici. Tekstualni chat dolazi kasnije.
 - Podnožje: domaćin **Pokreni glasanje**; ostali "Glasanje počinje kad domaćin odluči ili istekne vrijeme."
 
 ### 6.8 Glasanje
