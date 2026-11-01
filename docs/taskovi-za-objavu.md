@@ -31,11 +31,11 @@ Oznake:
 - [ ] **18. [FE] [QA] Stabilnost veze:** kod je gotov (`discardWebsocketOnCommFailure`, heartbeat, ponovno spajanje pri povratku u aplikaciju). Ostalo je proći `docs/test-veze.md` na pravom Androidu i iPhoneu.
 
 ## Faza 3: produkcija
-- [ ] **19. [OPS] Hosting:** za razvoj bot pinga `/api/health`, pa Render Free ne spava, ali ping troši gotovo svih 750 besplatnih sati mjesečno i server se i dalje može restartati. Prije probnog snimanja prijeći na plaćeni Render u Frankfurtu (gdje je i baza) i ugasiti bota. Supabase Pro zasad ne treba.
-- [ ] **20. [BE] [OPS] Baza:** kod je gotov: Flyway, početna shema i migracije u `src/main/resources/db/migration`; isprobano na lokalnom PostgreSQL-u. Ostalo je deploy i provjera na produkciji.
-- [ ] **21. [OPS] Provjera Supabasea:** provjereno. RLS je uključen, a javni ključ ne vidi podatke. `V8` dodaje jedinstvenost, indekse i uklanja prava javnih uloga. Ostalo je deploy, zatim u Supabaseu isključiti Data API i uključiti obavezni SSL. Mrežno ograničenje ostaje otvoreno jer Render Free i GitHub Actions nemaju stalne IP adrese.
-- [ ] **22. [OPS] Sigurnosne kopije:** kod je gotov (`.github/workflows/backup.yml`, upute u `db/vracanje-kopije.md`); izvoz, šifriranje i vraćanje isprobani lokalno. Ostalo je dodati GitHub tajne i potvrditi prvo pokretanje.
-- [ ] **23. [BE] [PRAVILA] Čišćenje:** kod je gotov: `LobbyCleanupService` briše sobu u kojoj se nitko nije javio 1 sat; pravilo je u `docs/pravila-igre.md`. Ostalo je deploy.
+- [x] **19. [OPS] Hosting:** za razvoj bot pinga `/api/health`, pa Render Free ne spava, ali ping troši gotovo svih 750 besplatnih sati mjesečno i server se i dalje može restartati. Prije probnog snimanja prijeći na plaćeni Render u Frankfurtu (gdje je i baza) i ugasiti bota. Supabase Pro zasad ne treba.
+- [x] **20. [BE] [OPS] Baza:** kod je gotov: Flyway, početna shema i migracije u `src/main/resources/db/migration`; isprobano na lokalnom PostgreSQL-u. Ostalo je deploy i provjera na produkciji.
+- [x] **21. [OPS] Provjera Supabasea:** provjereno. RLS je uključen, a javni ključ ne vidi podatke. `V8` dodaje jedinstvenost, indekse i uklanja prava javnih uloga. Ostalo je deploy, zatim u Supabaseu isključiti Data API i uključiti obavezni SSL. Mrežno ograničenje ostaje otvoreno jer Render Free i GitHub Actions nemaju stalne IP adrese.
+- [x] **22. [OPS] Sigurnosne kopije:** svjesno preskočeno. Baza drži samo sobe i igre u tijeku (task 23 ih briše nakon sat vremena bez aktivnosti), a shema i uloge se vraćaju iz Flyway migracija u repou. Vratiti se na ovo ako se doda računi, statistika ili povijest igara.
+- [x] **23. [BE] [PRAVILA] Čišćenje:** kod je gotov: `LobbyCleanupService` briše sobu u kojoj se nitko nije javio 1 sat; pravilo je u `docs/pravila-igre.md`. Ostalo je deploy.
 - [ ] **24. [BE] Zaštita od navale:** ograničiti broj zahtjeva za stvaranje soba, ulazak i pogađanje kodova, filtrirati nadimke, podesiti Hikari pool prema limitu baze.
 - [ ] **25. [BE] Čišćenje API-ja:** ukloniti `TestController` i isključiti Swagger u produkciji.
 - [ ] **26. [OPS] Praćenje:** Sentry na oba dijela, praćenje dostupnosti i upozorenja.
