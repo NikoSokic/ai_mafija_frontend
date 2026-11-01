@@ -27,15 +27,15 @@ Oznake:
 - [x] **14. [BE] Domaćin nestane u čekaonici ili na kraju igre:** ako samo zatvori aplikaciju, nitko ne može pokrenuti igru. Prijenos domaćina nakon isteka vremena.
 - [x] **15. [FE] [BE] Domaćin nestane usred igre:** igra ide dalje, ali uživo nestaju glas naratora i gumbi domaćina. Isti prijenos.
 - [x] **16. [BE] [PRAVILA] Izlazak usred igre:** igrač koji izađe usred igre ispada (`LEFT`), uloga ostaje tajna, provjerava se pobjednik, a glasanje i uvod prve noći ne čekaju na njega. Backend: `PlayerService.leaveRunningGame`; frontend: potvrda "Napustiti igru?" i prikaz kao "Napustio igru".
-- [x] **17. [FE] [BE] Ispražnjen ili promijenjen mobitel:** token je samo na uređaju. Povratak preko koda sobe i nadimka, uz potvrdu domaćina (zahtjev vrijedi 2 min). Treba pokrenuti `db/migrations/006_povratak_igraca.sql` u Supabaseu. Ostalo je isprobati u pravoj igri na dva uređaja.
+- [x] **17. [FE] [BE] Ispražnjen ili promijenjen mobitel:** token je samo na uređaju. Povratak preko koda sobe i nadimka, uz potvrdu domaćina (zahtjev vrijedi 2 min). Ostalo je isprobati u pravoj igri na dva uređaja.
 - [ ] **18. [FE] [QA] Stabilnost veze:** kod je gotov (`discardWebsocketOnCommFailure`, heartbeat, ponovno spajanje pri povratku u aplikaciju). Ostalo je proći `docs/test-veze.md` na pravom Androidu i iPhoneu.
 
 ## Faza 3: produkcija
-- [ ] **19. [OPS] Hosting:** Render Free spava i budi se do oko 50 s. Plaćeni plan u regiji blizu baze; provjeriti i uvjete i cijene Supabasea.
-- [ ] **20. [BE] [OPS] Baza:** spremiti početnu shemu u repo, uvesti Flyway, provjeriti da su migracije 001–004 pokrenute.
-- [ ] **21. [OPS] Provjera Supabasea:** RLS i ograničenja. Tokeni i uloge su u bazi, a ovo još nije provjereno.
-- [ ] **22. [OPS] Sigurnosne kopije:** uključiti i jednom isprobati vraćanje.
-- [ ] **23. [BE] [PRAVILA] Čišćenje:** napuštena igra se vrti zauvijek (`backend/.../service/GameTimerService.java:28`), a stare čekaonice mogu popuniti popis javnih soba. Periodično brisanje; dira samo igre bez aktivnosti.
+- [ ] **19. [OPS] Hosting:** za razvoj bot pinga `/api/health`, pa Render Free ne spava, ali ping troši gotovo svih 750 besplatnih sati mjesečno i server se i dalje može restartati. Prije probnog snimanja prijeći na plaćeni Render u Frankfurtu (gdje je i baza) i ugasiti bota. Supabase Pro zasad ne treba.
+- [ ] **20. [BE] [OPS] Baza:** kod je gotov: Flyway, početna shema i migracije u `src/main/resources/db/migration`; isprobano na lokalnom PostgreSQL-u. Ostalo je deploy i provjera na produkciji.
+- [ ] **21. [OPS] Provjera Supabasea:** provjereno. RLS je uključen, a javni ključ ne vidi podatke. `V8` dodaje jedinstvenost, indekse i uklanja prava javnih uloga. Ostalo je deploy, zatim u Supabaseu isključiti Data API i uključiti obavezni SSL. Mrežno ograničenje ostaje otvoreno jer Render Free i GitHub Actions nemaju stalne IP adrese.
+- [ ] **22. [OPS] Sigurnosne kopije:** kod je gotov (`.github/workflows/backup.yml`, upute u `db/vracanje-kopije.md`); izvoz, šifriranje i vraćanje isprobani lokalno. Ostalo je dodati GitHub tajne i potvrditi prvo pokretanje.
+- [ ] **23. [BE] [PRAVILA] Čišćenje:** kod je gotov: `LobbyCleanupService` briše sobu u kojoj se nitko nije javio 1 sat; pravilo je u `docs/pravila-igre.md`. Ostalo je deploy.
 - [ ] **24. [BE] Zaštita od navale:** ograničiti broj zahtjeva za stvaranje soba, ulazak i pogađanje kodova, filtrirati nadimke, podesiti Hikari pool prema limitu baze.
 - [ ] **25. [BE] Čišćenje API-ja:** ukloniti `TestController` i isključiti Swagger u produkciji.
 - [ ] **26. [OPS] Praćenje:** Sentry na oba dijela, praćenje dostupnosti i upozorenja.
@@ -63,6 +63,7 @@ Oznake:
 
 ## Uvjeti za javljanje ekipi
 - [ ] Faze 1–5 su gotove, osim onoga što je svjesno odgođeno.
+- [ ] Backend je na plaćenom Renderu u Frankfurtu (task 19).
 - [ ] 5 cijelih igara zaredom s pravim ljudima, bez zapinjanja i bez osvježavanja stranice.
 - [ ] Glas naratora radi na uređajima koje će ekipa koristiti.
 - [ ] Probno snimanje na njihovim uređajima prošlo je bez problema.

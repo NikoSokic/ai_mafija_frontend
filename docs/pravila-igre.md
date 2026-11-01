@@ -69,6 +69,7 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 - Bivši domaćin ostaje običan igrač i ulogu ne dobiva natrag kad se vrati.
 - Nakon ponovnog pokretanja poslužitelja rokovi se računaju od pokretanja, pa nitko ne gubi ulogu zbog restarta.
 - Uživo glas naratora govori samo domaćinov mobitel, pa prijenosom glas prelazi na novog domaćina.
+- **Napuštena soba:** ako se nijedan igrač iz sobe ne javi 1 sat, soba se trajno briše zajedno s igrom, bez obzira na to čeka li igrače, traje li igra ili je završena. Jedan igrač koji se javlja dovoljan je da soba ostane. Povijest igara se ne čuva. Nakon ponovnog pokretanja poslužitelja sat se računa od pokretanja.
 
 ## Kraj igre
 

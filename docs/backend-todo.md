@@ -13,11 +13,13 @@ Treba (ako se želi): `roles` (`roleName`, `count`, kao `LobbyRoleResponse`) u `
 
 ## Autorizacija i sigurnost (10.8, 10.15)
 - `GET /api/lobbies/{code}` i javno stanje su dostupni svakome tko zna kod (samo javni podaci).
-- Lozinka baze se čita iz `SPRING_DATASOURCE_PASSWORD`; provjeri da stara lozinka više nije u povijesti repoa ili je promijeni u Supabaseu.
+- Lozinka baze se čita iz `SPRING_DATASOURCE_PASSWORD`. Stara lozinka ostaje u povijesti repoa, ali je promijenjena u Supabaseu i više ne vrijedi.
 
 ---
 
 # Riješeno u backendu (listopad 2026.)
+
+Napomena (studeni 2026.): migracije sada pokreće Flyway pri pokretanju backenda (`src/main/resources/db/migration`). Upute niže o ručnom pokretanju u Supabaseu i putanje `db/migrations` su iz vremena prije toga i više ne vrijede.
 
 Prije pokretanja nove verzije backenda pokreni `db/migrations/001_rokovi_suzdrzani_ispadanje.sql` u Supabase SQL editoru.
 
