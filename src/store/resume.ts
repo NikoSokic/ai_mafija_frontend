@@ -25,6 +25,27 @@ export const roomPath = (code: string, status: LobbyStatus | null) =>
 
 let started: Promise<ResumeTarget | null> | null = null
 
+const SKIP_KEY = 'aimafija.skipResume'
+
+/** sljedeće učitavanje stranice ne vraća igrača u sobu (npr. "Na početnu" nakon greške) */
+export function skipNextResume() {
+  try {
+    sessionStorage.setItem(SKIP_KEY, '1')
+  } catch {
+    // bez zastavice povratak u sobu je i dalje moguć
+  }
+}
+
+function consumeSkip() {
+  try {
+    const skip = sessionStorage.getItem(SKIP_KEY) === '1'
+    sessionStorage.removeItem(SKIP_KEY)
+    return skip
+  } catch {
+    return false
+  }
+}
+
 // Povratak u igru (spec 6.10), jednom po učitavanju: StrictMode pokrene efekt dvaput, a oba dobiju isti odgovor.
 // check = false preskače poziv backendu, jer lobby i igra sami provjere svoju sesiju.
 export function resumeSession(check: boolean) {
@@ -34,6 +55,7 @@ export function resumeSession(check: boolean) {
 
 async function run(check: boolean): Promise<ResumeTarget | null> {
   const session = loadSession()
+  if (consumeSkip()) check = false
   if (session && check) {
     try {
       const res = await reconnect(session)

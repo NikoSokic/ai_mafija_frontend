@@ -11,7 +11,13 @@ export interface Narration {
   /** podnaslov u zaglavlju, npr. "Jutarnje vijesti" */
   label: string
   text: string
+  /** najdulje trajanje u ms; poslije toga narator ide dalje i kad govor još traje */
+  maxMs?: number
 }
+
+// Potez uloge traje 6 s naracije + 20 s odabira (GameRules na backendu). Narator se ne smije
+// zadržati puno dulje od naracije, jer to vrijeme igrač gubi za odabir.
+const TURN_NARRATION_MAX_MS = 8000
 
 // Hash teksta prije seededRandom: susjedni seedovi (runda 2, 3…) daju gotovo isti prvi broj,
 // pa bi se varijanta rijetko mijenjala. Isti kod i runda = ista varijanta na svim uređajima.
@@ -118,6 +124,8 @@ function turnsInGame(roles: string[] | null) {
 /**
  * Narator uspava prethodnu ulogu i budi onu na redu (currentTurnRole iz javnog stanja).
  * Prethodna se računa iz sastava, pa radi i nakon osvježavanja. null za nepoznat potez.
+ * Prva noć nema zaseban uvod (GameScreen ga preskače), jer on pojede vrijeme za odabir prvog
+ * poteza; zato prvi potez te noći sam počinje s "Svi zatvorite oči."
  */
 export function turnNarration(round: number, turn: string, roles: string[] | null): Narration | null {
   const t = TURNS.find((x) => x.turn === turn)
@@ -128,7 +136,13 @@ export function turnNarration(round: number, turn: string, roles: string[] | nul
   if (index > 0 && turns) close = `${closeEyes(turns[index - 1])} `
   // sastav nije poznat: ne zna se tko je bio prije, pa samo općenito
   else if (!turns && t.turn !== 'MAFIA') close = 'Zatvorite oči. '
-  return { key: `turn-${round}-${turn}`, label: `Budi se: ${t.name}`, text: `${close}${openEyes(t)} ${t.task}` }
+  else if (round === 1) close = 'Svi zatvorite oči. '
+  return {
+    key: `turn-${round}-${turn}`,
+    label: `Budi se: ${t.name}`,
+    text: `${close}${openEyes(t)} ${t.task}`,
+    maxMs: TURN_NARRATION_MAX_MS,
+  }
 }
 
 /** jutro iz izvještaja noći: nadimci ubijenih i utišanih; prvo se uspava zadnja uloga noći */

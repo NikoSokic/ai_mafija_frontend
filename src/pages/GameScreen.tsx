@@ -131,6 +131,8 @@ function narrationsOf(
     case 'night': {
       const intro = nightNarration(code, shown.round)
       const turn = game.phase === 'NIGHT' && game.currentTurnRole ? turnNarration(shown.round, game.currentTurnRole, roles) : null
+      // prva noć: uvod bi pojeo vrijeme prvog poteza, pa prvi potez sam uspavljuje grad
+      if (turn && shown.round === 1) return [turn]
       return turn ? [intro, turn] : [intro]
     }
     case 'day':

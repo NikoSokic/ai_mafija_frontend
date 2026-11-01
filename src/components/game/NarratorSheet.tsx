@@ -53,7 +53,7 @@ function NarratorBody({
 }: Omit<NarratorSheetProps, 'narration'> & { narration: Narration }) {
   const reduceMotion = useReducedMotion()
   const voiceUri = useCroatianVoice()
-  const { text } = narration
+  const { text, maxMs } = narration
   // koliko je znakova ispisano; uz reduced motion tekst je odmah cijeli
   const [count, setCount] = useState(() => (reduceMotion ? Infinity : 0))
   const [settling, setSettling] = useState(!reduceMotion)
@@ -114,6 +114,13 @@ function NarratorBody({
     const t = window.setTimeout(() => onNextRef.current(), wait)
     return () => clearTimeout(t)
   }, [done, audible, spoken, reduceMotion, text.length])
+
+  // Gornja granica: noću narator ne smije oduzeti vrijeme za odabir, ni kad preglednik ne javi kraj govora
+  useEffect(() => {
+    if (maxMs === undefined) return
+    const t = window.setTimeout(() => onNextRef.current(), maxMs)
+    return () => clearTimeout(t)
+  }, [maxMs])
 
   function again() {
     setCount(reduceMotion ? Infinity : 0)

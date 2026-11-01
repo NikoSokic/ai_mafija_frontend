@@ -104,8 +104,26 @@ export default function DevPage() {
             Konfeti
           </Button>
         </Section>
+        <ErrorDemo />
       </main>
     </ThemeRoot>
+  )
+}
+
+function Crash(): ReactNode {
+  throw new Error('Probna greška (/dev)')
+}
+
+function ErrorDemo() {
+  const [crash, setCrash] = useState(false)
+  return (
+    <Section title="ErrorBoundary">
+      <Caption>Baca grešku pri renderiranju, pa se prikaže zamjenski ekran.</Caption>
+      <Button variant="secondary" onClick={() => setCrash(true)}>
+        Baci grešku
+      </Button>
+      {crash && <Crash />}
+    </Section>
   )
 }
 

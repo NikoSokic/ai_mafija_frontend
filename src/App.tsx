@@ -4,6 +4,7 @@ import CreateRoomPage from './pages/CreateRoomPage.tsx'
 import GameScreen from './pages/GameScreen.tsx'
 import HomePage from './pages/HomePage.tsx'
 import LobbyPage from './pages/LobbyPage.tsx'
+import NotFoundPage from './pages/NotFoundPage.tsx'
 import PublicRoomsPage from './pages/PublicRoomsPage.tsx'
 import { resumeSession, roomPath } from './store/resume.ts'
 import { wakeServer, whenServerReady } from './store/server.ts'
@@ -31,6 +32,7 @@ export default function App() {
             }
           />
         )}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   )
