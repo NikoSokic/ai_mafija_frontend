@@ -20,3 +20,6 @@
 4. Na kraju napiši:
    - "Kako provjeriti": točni koraci u pregledniku
    - "Što sam napravio i zašto": 5–8 rečenica, jednostavno, da to mogu objasniti na razgovoru za posao
+## Promo video (/brag)
+- Za promo video koristi skill `brag-mafija` (".claude/skills/brag-mafija"); on poziva `brag-slim`
+- Izlaz ide u `brag-output/` (u .gitignore); pravilo "plan pa čekaj OK" vrijedi i ovdje: prvo `brag-plan.md`, render tek nakon mog OK

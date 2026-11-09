@@ -22,6 +22,7 @@
   --color-sky: var(--sky);
   --color-sky-top: var(--sky-top);
   --color-window: var(--window);
+  --color-danger: var(--danger);
 
   /* boje uloga (iste u obje teme) */
   --color-role-mafia: var(--role-mafia);
@@ -55,6 +56,7 @@
   --animate-lock-on: lock-on .5s cubic-bezier(.34, 1.56, .64, 1);
   --animate-result-in: result-in .7s cubic-bezier(.34, 1.56, .64, 1) both;
   --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+  --animate-time-pulse: pulse-soft .7s ease-in-out infinite;
   --animate-drop-in: drop-in .55s cubic-bezier(.34, 1.56, .64, 1);
   --animate-elim-av: elim-av 2s cubic-bezier(.2, .8, .2, 1) forwards;
   --animate-crack: draw .35s forwards;
@@ -155,6 +157,8 @@
 }
 
 :root {
+  /* zadnje sekunde poteza; jača od noćnog akcenta, koji je i sam crven */
+  --danger: #FF1F3A;
   --role-mafia: #FF4D5E;
   --role-dama: #FF7AB6;
   --role-doktor: #4FD1A5;

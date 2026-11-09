@@ -28,3 +28,6 @@ dist-ssr
 
 # Tokeni testnih igrača (scripts/fill-lobby.mjs)
 scripts/.bots/
+
+# /brag promo video (renderi i radne datoteke)
+brag-output*/

@@ -4,11 +4,14 @@ import type { RoleKey } from '../../data/roles.ts'
 // Tekstovi noćne akcije iz prototipa (nightCfg): pitanje, objašnjenje i riječ ispred odabranih meta
 export type NightText = { question: string; hint: string; verb: string }
 
+// Bez dogovora slijedi drugi krug, a kad nitko ne odabere, strada nasumični živi igrač (ActionService.settleMafiaTurn)
+const KILL_TEAM_HINT = 'Dogovorite se oko mete. Ako nitko ne odabere, strada netko nasumično – možda i netko od vas.'
+const KILL_SOLO_HINT = 'Ako ne odabereš, strada netko nasumično – možda i ti.'
+
 const TEXTS: Record<ActionType, NightText> = {
   KILL: {
     question: 'Koga mafija uklanja večeras?',
-    // GameRulesService.mafiaKillTarget: većina živih mafijaša, kod izjednačenja nitko
-    hint: 'Strada onaj koga odabere većina mafije. Ako se ne složite, nitko ne strada.',
+    hint: KILL_TEAM_HINT,
     verb: 'Meta:',
   },
   SILENCE: {
@@ -33,13 +36,13 @@ const TEXTS: Record<ActionType, NightText> = {
   },
 }
 
-// Dama dobije KILL kad mafija padne
-const DAMA_KILL: NightText = {
-  question: 'Mafije više nema. Koga uklanjaš?',
-  hint: 'Preuzela si ulogu mafije i noćas biraš žrtvu.',
-  verb: 'Meta:',
-}
-
-export function nightText(action: ActionType, role: RoleKey | null): NightText {
-  return role === 'Dama' && action === 'KILL' ? DAMA_KILL : TEXTS[action]
+/** `withPartners`: u potezu mafije bira još netko živ, pa se tekst obraća timu */
+export function nightText(action: ActionType, role: RoleKey | null, withPartners = false): NightText {
+  if (action !== 'KILL') return TEXTS[action]
+  const hint = withPartners ? KILL_TEAM_HINT : KILL_SOLO_HINT
+  // Dama dobije KILL kad mafija padne
+  if (role === 'Dama') {
+    return { question: 'Mafije više nema. Koga uklanjaš?', hint: `Preuzela si ulogu mafije. ${hint}`, verb: 'Meta:' }
+  }
+  return { ...TEXTS.KILL, hint }
 }

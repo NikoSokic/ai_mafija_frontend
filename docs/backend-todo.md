@@ -32,9 +32,9 @@ Prije pokretanja nove verzije backenda pokreni `db/migrations/001_rokovi_suzdrza
 - `ApiErrorResponse.code`: `describeError` u `src/api/rest.ts` prevodi po kodu.
 - `GET /api/roles` za ekran Nova soba.
 - `currentTurnRole` u javnom stanju (null u uvodu noći i danju): narator budi ulogu na redu, a iz sastava (`GET /api/lobbies/{code}` → `roles`) zna koju je prije uspavao.
-- Potez traje uvijek `TURN_NARRATION` (6 s) + `NIGHT_TURN` (20 s) i ne završava ranije kad svi odigraju; glumljeni potez mrtve uloge traje jednako. `ActionResponse.nightResolved` zato iz `POST /api/actions` više nikad nije `true`.
+- Potez ima `TURN_NARRATION` (4 s) i najviše `NIGHT_TURN_MAX` (13 s) odabira; kad uloga odigra, završava nakon nasumičnih 1–4 s, a mafija može imati i drugi krug od 10 s (`currentPlayer.mafiaRunoff`). Igrač na potezu dobiva `actionStartedAt` i `actionEndsAt` za traku vremena; javni `phaseEndsAt` je uvijek najdulji rok. `ActionResponse.nightResolved` iz `POST /api/actions` nikad nije `true`.
 - `NIGHT_RESOLVED` i `VOTING_STARTED` frontend preskače, jer odmah za njima stiže `GAME_STATE_CHANGED` s istim stanjem.
-- Tim mafije: suigrači na karti uloge (`currentPlayer.teammates`), pločice "Tvoj tim", značka s avatarom suigrača na meti (`teamTargets`, uživo), promjena mete do kraja poteza i odbrojavanje do `actionEndsAt` uz "Tvoj red".
+- Tim mafije: suigrači na karti uloge (`currentPlayer.teammates`), pločice "Tvoj tim", značka s avatarom suigrača na meti (`teamTargets`, uživo), promjena mete do kraja poteza i traka vremena do `actionEndsAt` ispod "Tvoj red".
 - Postavke sobe (`mode`, `isPublic`, `voiceEnabled`), `avatarEmoji`, `hostPlayerId` i sastav uloga iz `GET /api/lobbies/{code}`; javne sobe iz `GET /api/lobbies?public=true` (osvježavanje svakih 5 s); `POST /api/lobbies/{code}/leave` s događajima `PLAYER_LEFT` i `HOST_CHANGED`. Lokalni `aimafija.room` više ne postoji.
 
 ## Novo u backendu (listopad 2026., druga runda)

@@ -131,11 +131,14 @@ function narrationsOf(
     case 'role':
       return ready ? [startNarration()] : []
     case 'night': {
-      const intro = nightNarration(code, shown.round)
-      const turn = game.phase === 'NIGHT' && game.currentTurnRole ? turnNarration(shown.round, game.currentTurnRole, roles) : null
-      // prva noć: uvod bi pojeo vrijeme prvog poteza, pa prvi potez sam uspavljuje grad
-      if (turn && shown.round === 1) return [turn]
-      return turn ? [intro, turn] : [intro]
+      const turn =
+        game.phase === 'NIGHT' && game.currentTurnRole
+          ? turnNarration(shown.round, game.currentTurnRole, roles, game.phaseEndsAt)
+          : null
+      // Potez koji je počeo prekida sve prije njega (NarratorBody tada prekine govor), jer mu inače teče
+      // vrijeme za odabir. Prva noć ionako nema uvod: pojeo bi prvi potez, koji sam uspavljuje grad.
+      if (turn) return [turn]
+      return [nightNarration(code, shown.round)]
     }
     case 'day':
       return [

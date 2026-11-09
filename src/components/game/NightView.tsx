@@ -5,8 +5,6 @@ import type { ActionResponse, AvailableActionResponse, GameStateResponse } from 
 import { ROLES, type RoleKey } from '../../data/roles.ts'
 import { riseItem, riseList } from '../../lib/motion.ts'
 import { avatarById, playerHue } from '../../lib/playerLook.ts'
-import { formatSeconds } from '../../lib/time.ts'
-import { useCountdown } from '../../lib/useCountdown.ts'
 import { addNote, type NightNote, type NoteTarget } from '../../store/notes.ts'
 import type { Mode } from '../../store/roomSettings.ts'
 import type { Session } from '../../store/session.ts'
@@ -23,6 +21,7 @@ import NightResult from './NightResult.tsx'
 import { nightText } from './nightConfig.ts'
 import PhaseHeader from './PhaseHeader.tsx'
 import { fateText } from './playerStatus.ts'
+import TimeBar from './TimeBar.tsx'
 
 type NightViewProps = {
   code: string
@@ -39,8 +38,9 @@ type NightViewProps = {
   onHoldChange: (hold: boolean) => void
 }
 
-// Potez traje 6 s naracije + 20 s za odabir (GameRules na backendu)
-const TURN_S = 26
+// Najdulji odabir i drugi krug mafije (GameRules na backendu); puna širina trake vremena
+const CHOOSE_S = 13
+const RUNOFF_S = 10
 
 // Lokalni korak nakon potvrde. Nakon osvježavanja stranice ostaje samo hasActed iz backenda.
 type Step = { kind: 'pick' } | { kind: 'result'; note: NightNote } | { kind: 'sent' }
@@ -78,8 +78,22 @@ export default function NightView({
   const offered = me.canAct ? (me.availableActions[0] ?? null) : null
   // mafija smije mijenjati metu do kraja poteza, ostali igraju jednom
   const action = offered && (!me.hasActed || offered.type === 'KILL') ? offered : null
-  const timer = useCountdown(action ? me.actionEndsAt : null, TURN_S)
-  const myPick = me.teamTargets.find((t) => t.playerId === me.playerId)?.targetPlayerId ?? null
+  const targetOf = (id: number) => me.teamTargets.find((t) => t.playerId === id)?.targetPlayerId ?? null
+  const myPick = targetOf(me.playerId)
+  // backend drugi krug šalje cijelom timu, a bira samo onaj tko ima akciju (Dama spava dok je Mafija živa)
+  const runoff = action?.type === 'KILL' && me.mafiaRunoff?.active ? me.mafiaRunoff : null
+  // tko još bira u potezu mafije: Mafija, a kad nje nema, Dama (GameRulesService.turnActors)
+  const partners = action?.type === 'KILL' ? me.teammates.filter((t) => t.alive && t.roleName === me.role) : []
+  const waitingForTeammate = myPick !== null && partners.some((t) => targetOf(t.playerId) === null)
+  const agreed = action?.type === 'KILL' && myPick !== null && partners.every((t) => targetOf(t.playerId) === myPick)
+
+  // novi krug kreće od poslane mete; neposlani odabir iz prvog kruga više ne vrijedi
+  const runoffEnd = runoff?.endsAt ?? null
+  const [prevRunoffEnd, setPrevRunoffEnd] = useState(runoffEnd)
+  if (runoffEnd !== prevRunoffEnd) {
+    setPrevRunoffEnd(runoffEnd)
+    setSelected(null)
+  }
 
   const emojiOf = (id: number) => avatarById(players, id)
   const nicknameOf = (id: number) => players.find((p) => p.id === id)?.nickname ?? '?'
@@ -158,10 +172,11 @@ export default function NightView({
   }
 
   // rezultat je prvi: igrač ga mora vidjeti i ako je iste noći stradao
-  let view: 'result' | 'observer' | 'sent' | 'action' | 'sleep'
+  let view: 'result' | 'observer' | 'sent' | 'action' | 'runoff' | 'sleep'
   if (step.kind === 'result') view = 'result'
   else if (!me.alive) view = 'observer'
-  else if (action) view = 'action'
+  // mafija koja se složila ne bira dalje: potez završava za 1–4 s
+  else if (action && !agreed) view = runoff ? 'runoff' : 'action'
   else if (step.kind === 'sent' || me.hasActed) view = 'sent'
   else view = 'sleep'
 
@@ -184,31 +199,30 @@ export default function NightView({
     main = <Observer fate={fateText(players.find((p) => p.id === me.playerId))} />
   } else if (view === 'sent') {
     main = <Sent />
-  } else if (view === 'action' && action) {
-    const text = nightText(action.type, role)
+  } else if ((view === 'action' || view === 'runoff') && action) {
+    const text = nightText(action.type, role, partners.length > 0)
+    const targets = runoff ? alivePlayers.filter((p) => runoff.candidatePlayerIds.includes(p.id)) : alivePlayers
     main = (
       <>
-        <motion.div variants={riseItem} className="mt-1 flex items-center gap-3">
+        <motion.div variants={riseItem} className="mt-1">
           {role && <TurnBadge role={role} />}
-          <span
-            role="timer"
-            aria-label="Preostalo vrijeme poteza"
-            className={`text-[15px] font-semibold tabular-nums ${timer.left <= 5 ? 'text-accent' : 'text-muted'}`}
-          >
-            {formatSeconds(timer.left)}
-          </span>
+          {runoff ? (
+            <TimeBar endsAt={runoff.endsAt} seconds={RUNOFF_S} />
+          ) : (
+            me.actionEndsAt && <TimeBar startsAt={me.actionStartedAt} endsAt={me.actionEndsAt} seconds={CHOOSE_S} />
+          )}
         </motion.div>
         <motion.h3
           variants={riseItem}
           className="mt-1.5 mb-2 max-w-[18ch] text-[26px] leading-[1.15] font-bold tracking-[-.025em]"
         >
-          {text.question}
+          {runoff ? 'Niste se složili' : text.question}
         </motion.h3>
         <motion.p variants={riseItem} className="mb-[18px] max-w-[36ch] text-[15px] leading-[1.45] text-muted">
-          {text.hint}
+          {runoff ? 'Ako se ne složite, odlučit će slučaj.' : text.hint}
         </motion.p>
         <motion.div variants={riseItem} className="grid grid-cols-3 gap-2">
-          {alivePlayers.map((p) => {
+          {targets.map((p) => {
             const tag = tagFor(p.id, action)
             const isMe = p.id === me.playerId
             const pickers = me.teamTargets
@@ -233,7 +247,9 @@ export default function NightView({
     footer = (
       <>
         <div aria-live="polite" className="mb-0.5 flex min-h-6 items-center gap-2.5 text-[15px] text-muted">
-          {alreadySent ? (
+          {alreadySent && waitingForTeammate ? (
+            <span>Čekamo suigrača…</span>
+          ) : alreadySent ? (
             <span>
               Odabrano: <b className="font-semibold text-text">{nicknameOf(picked[0])}</b>. Možeš promijeniti do kraja
               poteza.

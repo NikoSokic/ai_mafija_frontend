@@ -23,9 +23,13 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 - Ostale noći počinju pauzom od 10 s (prijelaz i naracija).
 - Redoslijed: Mafija → Dama → Doktor → Policajac → Novinar. Uloge kojih u igri nema se preskaču.
 - Narator na početku noći kaže svima da zatvore oči, a zatim budi uloge iz sastava redom (Mafija, Dama, Doktor, Policajac, Novinar). Na prijelazu uspava prethodnu ulogu i budi sljedeću ("Mafijo, zatvorite oči. Dama, otvori oči…"); zadnju uspava na početku jutra.
-- Svaki potez traje **uvijek** 26 s: 6 s naracije + 20 s za odabir. Tko odigra ranije, čeka ("Potez je poslan"). Tko ne odigra, gubi potez. Mafija smije mijenjati metu do isteka roka.
-- Ako je uloga mrtva, narator je i dalje pozove, a njezin potez se **glumi** jednako dugo, pa se iz trajanja noći ne može zaključiti tko je živ.
-- **Mafija:** svi mafijaši vide odabir suigrača i smiju mijenjati metu. Potez završava kad svi odaberu istu metu. Ako istekne rok, vrijedi većina; kod izjednačenja te noći nitko ne strada. Mafija ne može ciljati svoj tim.
+- Potez počinje s 4 s naracije, a zatim uloga ima najviše 13 s za odabir. Kad uloga odigra (kad ih je više, npr. dva Doktora, kad odigraju svi), potez završava nakon kratke nasumične pauze od 1–4 s. Tko ne odigra, gubi potez; i igrač koji "Nije tu" ima cijelih 13 s.
+- Ako je uloga mrtva, narator je i dalje pozove, a njezin potez se **glumi**: traje kao nasumično odabran nedavni stvarni potez iste uloge (iz svih soba; dok ih nema barem 10, nasumično 4–10 s), uvijek između 3 s i najduljeg mogućeg poteza. Javni rok je za svaku vrstu poteza uvijek isti (najdulji mogući), pa se ni iz roka ni iz trajanja ne može zaključiti tko je živ.
+- **Mafija:** svi mafijaši vide odabir suigrača i smiju mijenjati metu. Mafija ne može ciljati svoj tim.
+  - Kad svi živi mafijaši odaberu istu metu, potez završava nakon kratke pauze.
+  - Kad su svi odabrali, a mete su različite, odmah počinje **drugi krug** (10 s) u kojem se bira samo između tih meta. Ako se ne slože, server nasumično odabere jednu od njih.
+  - Ako istekne rok, a nisu svi odabrali: jedna odabrana meta vrijedi; više različitih meta otvara drugi krug; ako nitko nije odabrao, strada nasumični živi igrač, i iz tima mafije. Doktor ga može spasiti kao i inače, a jutarnji izvještaj ne otkriva je li meta odabrana ili nasumična.
+  - Isto vrijedi kad potez mafije igra Dama.
 - **Dama:** dok je Mafija živa, utiša jednog živog igrača (bilo kojeg: i sebe, i suigrača iz mafije, i metu mafije; ako meta tu noć pogine, ne ostaje utišana). Utišani idući dan ne govori i ne glasa. Kad Mafija pogine, Dama u potezu mafije ubija i više ne utišava (njezin potez se tada glumi).
 - **Doktor:** štiti bilo kojeg živog igrača, i sebe, i istog igrača više noći zaredom. Ako dva Doktora zaštite istog igrača, on umire (predoziranje).
 - **Policajac:** saznaje je li igrač mafija. Dama izgleda nevino dok je Mafija živa.

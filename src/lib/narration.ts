@@ -13,11 +13,17 @@ export interface Narration {
   text: string
   /** najdulje trajanje u ms; poslije toga narator ide dalje i kad govor još traje */
   maxMs?: number
+  /** vrijeme poslužitelja (ms) od kada igrač bira; kasna naracija poteza staje tada */
+  endsAt?: number
 }
 
-// Potez uloge traje 6 s naracije + 20 s odabira (GameRules na backendu). Narator se ne smije
-// zadržati puno dulje od naracije, jer to vrijeme igrač gubi za odabir.
-const TURN_NARRATION_MAX_MS = 8000
+// Potez uloge počinje s 4 s naracije (GameRules na backendu), a od tada igraču teče vrijeme za odabir.
+// Zato narator staje na 4 s, a tekst poteza mora biti izgovoren u tom vremenu.
+const TURN_NARRATION_MAX_MS = 4000
+// Najdulji odabir poteza (GameRules: NIGHT_TURN_MAX, a za mafiju i MAFIA_RUNOFF_TIME); javni phaseEndsAt je
+// uvijek kraj najduljeg mogućeg poteza, pa se iz njega dobije početak odabira
+const TURN_CHOOSE_MS = 13000
+const MAFIA_CHOOSE_MS = 23000
 
 // Hash teksta prije seededRandom: susjedni seedovi (runda 2, 3…) daju gotovo isti prvi broj,
 // pa bi se varijanta rijetko mijenjala. Isti kod i runda = ista varijanta na svim uređajima.
@@ -64,7 +70,6 @@ interface Turn {
   call: string
   /** mafija se zove u množini ("otvorite"), jer ih može biti više */
   plural: boolean
-  task: string
   /** je li potez u igri; isto pravilo kao GameRulesService.turnExistsInGame */
   inGame: (roles: string[]) => boolean
 }
@@ -76,7 +81,6 @@ const TURNS: Turn[] = [
     name: 'Mafija',
     call: 'Mafijo',
     plural: true,
-    task: 'Pogledajte se i odaberite koga uklanjate.',
     inGame: (roles) => roles.includes('Mafia') || roles.includes('Dama'),
   },
   {
@@ -84,7 +88,6 @@ const TURNS: Turn[] = [
     name: 'Dama',
     call: 'Dama',
     plural: false,
-    task: 'Odaberi koga utišavaš za sutra.',
     inGame: (roles) => roles.includes('Dama'),
   },
   {
@@ -92,7 +95,6 @@ const TURNS: Turn[] = [
     name: 'Doktor',
     call: 'Doktore',
     plural: false,
-    task: 'Odaberi koga noćas štitiš.',
     inGame: (roles) => roles.includes('Doktor'),
   },
   {
@@ -100,7 +102,6 @@ const TURNS: Turn[] = [
     name: 'Policajac',
     call: 'Policajče',
     plural: false,
-    task: 'Odaberi koga istražuješ.',
     inGame: (roles) => roles.includes('Policajac'),
   },
   {
@@ -108,7 +109,6 @@ const TURNS: Turn[] = [
     name: 'Novinar',
     call: 'Novinaru',
     plural: false,
-    task: 'Odaberi dva igrača koja uspoređuješ.',
     inGame: (roles) => roles.includes('Novinar'),
   },
 ]
@@ -126,8 +126,14 @@ function turnsInGame(roles: string[] | null) {
  * Prethodna se računa iz sastava, pa radi i nakon osvježavanja. null za nepoznat potez.
  * Prva noć nema zaseban uvod (GameScreen ga preskače), jer on pojede vrijeme za odabir prvog
  * poteza; zato prvi potez te noći sam počinje s "Svi zatvorite oči."
+ * Što uloga bira piše na njezinu ekranu, pa narator samo uspava i budi: tako tekst stane u 4 s.
  */
-export function turnNarration(round: number, turn: string, roles: string[] | null): Narration | null {
+export function turnNarration(
+  round: number,
+  turn: string,
+  roles: string[] | null,
+  phaseEndsAt: string | null,
+): Narration | null {
   const t = TURNS.find((x) => x.turn === turn)
   if (!t) return null
   const turns = turnsInGame(roles)
@@ -140,8 +146,9 @@ export function turnNarration(round: number, turn: string, roles: string[] | nul
   return {
     key: `turn-${round}-${turn}`,
     label: `Budi se: ${t.name}`,
-    text: `${close}${openEyes(t)} ${t.task}`,
+    text: `${close}${openEyes(t)}`,
     maxMs: TURN_NARRATION_MAX_MS,
+    endsAt: phaseEndsAt ? Date.parse(phaseEndsAt) - (turn === 'MAFIA' ? MAFIA_CHOOSE_MS : TURN_CHOOSE_MS) : undefined,
   }
 }
 

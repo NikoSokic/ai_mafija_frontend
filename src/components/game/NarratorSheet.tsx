@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/cx.ts'
 import type { Narration } from '../../lib/narration.ts'
 import { cancelSpeech, speak, useCroatianVoice } from '../../lib/speech.ts'
+import { useGameStore } from '../../store/gameStore.ts'
 import IconButton from '../IconButton.tsx'
 import Sheet from '../Sheet.tsx'
 
@@ -16,6 +17,8 @@ const AFTER_SPEECH_MS = 800
 const AFTER_TEXT_MS = 2000
 // ako preglednik nikad ne javi kraj govora
 const SPEECH_TIMEOUT_MS = 20000
+// koliko se najmanje vidi naracija poteza koja kasni (npr. noć je stigla nakon oproštaja s izbačenim igračem)
+const LATE_NARRATION_MS = 1200
 
 type NarratorSheetProps = {
   /** null = sheet je zatvoren */
@@ -53,7 +56,7 @@ function NarratorBody({
 }: Omit<NarratorSheetProps, 'narration'> & { narration: Narration }) {
   const reduceMotion = useReducedMotion()
   const voiceUri = useCroatianVoice()
-  const { text, maxMs } = narration
+  const { text, maxMs, endsAt } = narration
   // koliko je znakova ispisano; uz reduced motion tekst je odmah cijeli
   const [count, setCount] = useState(() => (reduceMotion ? Infinity : 0))
   const [settling, setSettling] = useState(!reduceMotion)
@@ -118,9 +121,10 @@ function NarratorBody({
   // Gornja granica: noću narator ne smije oduzeti vrijeme za odabir, ni kad preglednik ne javi kraj govora
   useEffect(() => {
     if (maxMs === undefined) return
-    const t = window.setTimeout(() => onNextRef.current(), maxMs)
+    const untilChoice = endsAt === undefined ? maxMs : endsAt - (Date.now() + useGameStore.getState().clockOffset)
+    const t = window.setTimeout(() => onNextRef.current(), Math.max(LATE_NARRATION_MS, Math.min(maxMs, untilChoice)))
     return () => clearTimeout(t)
-  }, [maxMs])
+  }, [maxMs, endsAt])
 
   function again() {
     setCount(reduceMotion ? Infinity : 0)

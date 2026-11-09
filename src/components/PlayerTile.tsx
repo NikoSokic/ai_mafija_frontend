@@ -71,7 +71,7 @@ export default function PlayerTile({
       {pickers.length > 0 && (
         <span className="absolute -bottom-[7px] left-1/2 flex h-[22px] max-w-[calc(100%+8px)] -translate-x-1/2 items-center gap-1 rounded-full border border-line bg-bg pr-2 pl-[3px] text-[11px] font-semibold whitespace-nowrap">
           <Avatar emoji={pickers[0].emoji} hue={pickers[0].hue} size={16} />
-          <span className="truncate">{pickers.length > 1 ? `${pickers.length} iz tima` : pickers[0].name}</span>
+          <span className="min-w-0 truncate">{pickers.map((p) => p.name).join(', ')}</span>
         </span>
       )}
     </button>

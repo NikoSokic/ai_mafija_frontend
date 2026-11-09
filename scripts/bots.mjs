@@ -2,18 +2,20 @@
 //
 // Upotreba:  node scripts/bots.mjs KOD [--svi] [--nesloga] [--nespremni] [--igre N]
 //   KOD    kod sobe; botovi se čitaju iz scripts/.bots/KOD.json
-//   --nesloga  botovi mafije biraju različite mete (i različite od mete igrača iz preglednika),
-//          pa se tim ne složi i nitko ne strada
-//   --svi  mafija smije ciljati bilo koga (zadano cilja samo botove izvan tima mafije,
+//   --nesloga  botovi mafije uvijek biraju različite mete (i različite od mete igrača iz preglednika)
+//          i ne popuštaju u drugom krugu, pa odlučuje slučaj
+//   --svi mafija smije ciljati bilo koga (zadano cilja samo botove izvan tima mafije,
 //          da igrač u pregledniku ne strada prerano)
 //   --nespremni  botovi ne javljaju "Spreman sam", pa prva noć čeka domaćina ("Počni noć bez čekanja") ili 90 s
 //   --igre N  stani nakon N završenih igara (zadano: igraj dalje dok domaćin pokreće nove igre, do Ctrl+C)
 //
 // Svakih 1,5 s provjeri stanje svakog bota.
 // - Uvod prve noći: svaki bot nakon 1–3 s javi "Spreman sam" (POST /ready).
-// - Noć: kad je bot na redu, nakon 2 s "razmišljanja" pošalje akciju sa slučajnom metom iz
-//   targetPlayerIds. Tim mafije se mora složiti oko mete, pa botovi mafije slijede metu igrača
-//   iz preglednika, a bez njega metu suigrača s najmanjim id-om.
+// - Noć: kad je bot na redu, nakon 2–10 s "razmišljanja" pošalje akciju sa slučajnom metom iz
+//   targetPlayerIds.
+// - Mafija svaku noć jednom odluči kako igra: slaže se (botovi slijede i metu igrača iz preglednika),
+//   bira različite mete (drugi krug, u kojem se pola puta dogovore, a inače odlučuje slučaj) ili nitko
+//   ne bira (strada nasumični živi igrač).
 // - Glasanje: svaki bot koji smije glasati nakon 1–4 s glasa za slučajnog igrača iz
 //   eligibleTargetPlayerIds (nikad "Suzdržan"), pa se glasovi u pregledniku vide kako stižu.
 // - Kraj igre: botovi čekaju "Igraj ponovno" (soba se vrati u WAITING) i igraju iduću igru.
@@ -22,7 +24,12 @@
 import { apiUrl, json, loadBots } from './api.mjs'
 
 const POLL_MS = 1500
-const THINK_MS = 2000
+const THINK_MIN_MS = 2000
+const THINK_MAX_MS = 10000
+// koliko često se mafija ne složi / nitko ne bira; ostatak noći se slaže
+const SPLIT_CHANCE = 0.25
+const NOBODY_CHANCE = 0.15
+const RUNOFF_SETTLE_CHANCE = 0.5
 const READY_MIN_MS = 1000
 const READY_MAX_MS = 3000
 const VOTE_MIN_MS = 1000
@@ -53,6 +60,7 @@ const botIds = new Set(bots.map((b) => b.playerId))
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const pick = (list) => list[Math.floor(Math.random() * list.length)]
 const between = (min, max) => min + Math.random() * (max - min)
+const think = () => between(THINK_MIN_MS, THINK_MAX_MS)
 
 const gameState = async (bot) =>
   json(
@@ -85,19 +93,67 @@ function chooseTargets(bot, action, roles) {
   return [first, pick(candidates.filter((id) => id !== first))]
 }
 
-// Meta oko koje se tim mafije slaže: odabir igrača iz preglednika, inače člana s najmanjim id-om.
-// null dok nitko iz tima nije odabrao.
-function teamTarget(teamTargets) {
-  const human = teamTargets.find((t) => !botIds.has(t.playerId))
-  const leader = human ?? [...teamTargets].sort((a, b) => a.playerId - b.playerId)[0]
-  return leader?.targetPlayerId ?? null
+// Meta koju je odabrao igrač iz preglednika iz tima mafije; null ako je nema
+const humanTarget = (teamTargets) => teamTargets.find((t) => !botIds.has(t.playerId))?.targetPlayerId ?? null
+
+// Kako mafija igra ove noći; odluči se jednom po noći, zajednički za sve botove mafije
+const mafiaPlans = new Map()
+function mafiaPlan(key) {
+  if (!mafiaPlans.has(key)) {
+    const roll = Math.random()
+    const kind = disagree || roll < SPLIT_CHANCE ? 'split' : roll < SPLIT_CHANCE + NOBODY_CHANCE ? 'nobody' : 'agree'
+    mafiaPlans.set(key, { kind, target: null, claimed: new Set(), runoffTarget: undefined })
+    console.log(`  Mafija noćas: ${{ split: 'različite mete', nobody: 'nitko ne bira', agree: 'dogovor' }[kind]}`)
+  }
+  return mafiaPlans.get(key)
 }
 
-// Za --nesloga: meta koju nitko iz tima još nije odabrao (ako je ima)
-function differentTarget(bot, action, roles, teamTargets) {
-  const taken = new Set(teamTargets.map((t) => t.targetPlayerId))
-  const free = action.targetPlayerIds.filter((id) => !taken.has(id) && id !== bot.playerId)
-  return pick(free.length ? free : chooseTargets(bot, action, roles))
+// Meta koju nitko iz tima još nije odabrao; izvan --svi radije bot izvan tima mafije
+function splitTarget(plan, action, roles, teamTargets) {
+  const taken = new Set([...plan.claimed, ...teamTargets.map((t) => t.targetPlayerId)])
+  const free = action.targetPlayerIds.filter((id) => !taken.has(id))
+  const bots = free.filter((id) => roles.has(id) && !MAFIA_TEAM.has(roles.get(id)))
+  const target = pick(!anyTarget && bots.length ? bots : free.length ? free : action.targetPlayerIds)
+  plan.claimed.add(target)
+  return target
+}
+
+// Potez mafije jednog bota: prvi krug po planu noći, a u drugom se bot pomakne samo ako se tim dogovorio
+function mafiaTurn(bot, s, action, roles, names, key) {
+  const me = s.currentPlayer
+  const plan = mafiaPlan(`${game}:${s.roundNumber}`)
+  const own = me.teamTargets.find((t) => t.playerId === bot.playerId)?.targetPlayerId ?? null
+  const schedule = (mark, target) => {
+    started.add(mark)
+    setTimeout(() => act(bot, me.role, action, [target], names), think())
+  }
+
+  if (me.mafiaRunoff?.active) {
+    if (plan.runoffTarget === undefined) {
+      plan.runoffTarget = !disagree && Math.random() < RUNOFF_SETTLE_CHANCE ? pick(action.targetPlayerIds) : null
+      console.log(`  Drugi krug: ${plan.runoffTarget === null ? 'bez dogovora, odlučuje slučaj' : `dogovor oko ${names.get(plan.runoffTarget)}`}`)
+    }
+    if (plan.runoffTarget !== null && plan.runoffTarget !== own && !started.has(`${key}:runoff`)) {
+      schedule(`${key}:runoff`, plan.runoffTarget)
+    }
+    return
+  }
+
+  if (plan.kind === 'nobody') return
+  if (!me.hasActed && !started.has(key)) {
+    if (plan.kind === 'split') {
+      schedule(key, splitTarget(plan, action, roles, me.teamTargets))
+    } else {
+      plan.target ??= chooseTargets(bot, action, roles)[0]
+      schedule(key, humanTarget(me.teamTargets) ?? plan.target)
+    }
+    return
+  }
+  // igrač iz preglednika je odabrao drugu metu: botovi koji se slažu prelaze na nju
+  const human = humanTarget(me.teamTargets)
+  if (plan.kind === 'agree' && me.hasActed && human !== null && human !== own && !started.has(`${key}:${human}`)) {
+    schedule(`${key}:${human}`, human)
+  }
 }
 
 // Poziv bez odgovora koji treba ispisati; greška se samo zapiše
@@ -256,24 +312,13 @@ for (;;) {
     if (!action) continue
     const key = `${game}:${bot.playerId}:${s.roundNumber}`
     if (action.type === 'KILL') {
-      const agreed = teamTarget(me.teamTargets)
-      const own = me.teamTargets.find((t) => t.playerId === bot.playerId)?.targetPlayerId ?? null
-      if (!me.hasActed && !started.has(key)) {
-        // prvi odabir: meta tima ako je netko već odabrao, inače slučajna
-        started.add(key)
-        const target = disagree ? differentTarget(bot, action, roles, me.teamTargets) : (agreed ?? chooseTargets(bot, action, roles)[0])
-        setTimeout(() => act(bot, me.role, action, [target], names), THINK_MS)
-      } else if (!disagree && me.hasActed && agreed !== null && agreed !== own && !started.has(`${key}:${agreed}`)) {
-        // mafija smije promijeniti metu dok se tim ne složi
-        started.add(`${key}:${agreed}`)
-        setTimeout(() => act(bot, me.role, action, [agreed], names), THINK_MS)
-      }
+      mafiaTurn(bot, s, action, roles, names, key)
       continue
     }
     if (me.hasActed || started.has(key)) continue
     started.add(key)
     const targets = chooseTargets(bot, action, roles)
-    setTimeout(() => act(bot, me.role, action, targets, names), THINK_MS)
+    setTimeout(() => act(bot, me.role, action, targets, names), think())
   }
 
   await sleep(POLL_MS)

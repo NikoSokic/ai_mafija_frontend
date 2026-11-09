@@ -244,6 +244,13 @@ export interface ReconnectResponse {
   availableActions: AvailableActionResponse[]
 }
 
+/** Mafija je odabrala različite mete, pa bira samo između njih; bez dogovora do endsAt odlučuje slučaj */
+export interface MafiaRunoffResponse {
+  active: boolean
+  candidatePlayerIds: number[]
+  endsAt: string
+}
+
 export interface CurrentPlayerGameStateResponse {
   playerId: number
   nickname: string
@@ -252,8 +259,12 @@ export interface CurrentPlayerGameStateResponse {
   canAct: boolean
   hasActed: boolean
   availableActions: AvailableActionResponse[]
-  /** rok poteza; samo dok je igrač na redu */
+  /** najkasniji rok odabira (u drugom krugu mafije rok drugog kruga); samo dok je igrač na redu */
   actionEndsAt: string | null
+  /** kraj naracije, od kada igrač bira; samo dok je igrač na redu */
+  actionStartedAt: string | null
+  /** drugi krug mafije; samo za tim mafije dok traje */
+  mafiaRunoff: MafiaRunoffResponse | null
   /** samo za tim mafije */
   teammates: TeammateResponse[]
   /** samo za tim mafije tijekom noći */
