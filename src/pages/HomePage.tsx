@@ -232,7 +232,9 @@ export default function HomePage() {
     </ScreenTop>
   )
 
-  const city = <Skyline players={CITY} stateOf={(_, i) => (CITY_ON.includes(i) ? 'on' : 'off')} />
+  const city = (className?: string) => (
+    <Skyline players={CITY} stateOf={(_, i) => (CITY_ON.includes(i) ? 'on' : 'off')} className={className} />
+  )
 
   const sheets = (
     <>
@@ -269,7 +271,7 @@ export default function HomePage() {
             <div className="grid min-h-full grid-cols-[minmax(0,1fr)_minmax(360px,420px)] content-center items-center gap-x-16 gap-y-8 py-4">
               <div className="min-w-0">
                 {title}
-                <HowToPlay onRules={() => setSheet('rules')} />
+                <HowToPlay />
                 <RoleList />
               </div>
               <div className="flex flex-col gap-4">
@@ -288,7 +290,8 @@ export default function HomePage() {
               </div>
             </div>
           </ScreenBody>
-          {city}
+          {/* grad je spušten 48 px "u tlo" da na nižim prozorima ne ide iza popisa uloga */}
+          {city('lg:translate-y-12')}
           <ScreenFooter rise className="bg-sky lg:items-center">
             {reclaimButton}
           </ScreenFooter>
@@ -335,7 +338,7 @@ export default function HomePage() {
           )}
         </ScreenBody>
 
-        {city}
+        {city()}
         <ScreenFooter rise className="bg-sky">
           {createButton}
           {joinButtons}
@@ -354,16 +357,12 @@ const HOW_TO = [
   { title: 'Igrajte', text: 'AI narator vodi noći, dane i glasanje.' },
 ]
 
-// "Kako se igra" u tri koraka (samo desktop; na mobitelu tu ulogu ima kartica "Prvi put igraš?")
-function HowToPlay({ onRules }: { onRules: () => void }) {
+// "Kako se igra" u tri koraka (samo desktop; na mobitelu tu ulogu ima kartica "Prvi put igraš?").
+// Sva pravila otvara info ikona gore desno.
+function HowToPlay() {
   return (
     <motion.section variants={riseItem} className="mt-2 max-w-prose">
-      <div className="mb-3 flex items-center justify-between gap-4">
-        <h3 className="text-[13px] font-semibold tracking-[.08em] text-muted uppercase">Kako se igra</h3>
-        <button type="button" onClick={onRules} className="h-9 cursor-pointer px-1 text-[15px] font-semibold text-accent">
-          Sva pravila
-        </button>
-      </div>
+      <h3 className="mb-3 text-[13px] font-semibold tracking-[.08em] text-muted uppercase">Kako se igra</h3>
       <ol className="grid grid-cols-3 gap-5">
         {HOW_TO.map((step, i) => (
           <li key={step.title} className="flex flex-col gap-1.5">
