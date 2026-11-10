@@ -8,6 +8,7 @@ import { useErrorToast } from '../components/ErrorToast.tsx'
 import IconButton from '../components/IconButton.tsx'
 import { Icon } from '../components/icons.tsx'
 import OptionCard from '../components/OptionCard.tsx'
+import RoleComposition from '../components/RoleComposition.tsx'
 import RoleIcon from '../components/RoleIcon.tsx'
 import { Screen, ScreenBody, ScreenFooter, ScreenTop } from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -20,6 +21,7 @@ import { ROLE_KEYS, ROLES, type RoleKey } from '../data/roles.ts'
 import { cx } from '../lib/cx.ts'
 import { riseItem } from '../lib/motion.ts'
 import { useBump } from '../lib/useBump.ts'
+import { useIsDesktop } from '../lib/useIsDesktop.ts'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { loadProfile } from '../store/profile.ts'
 import { DEFAULT_ROOM_SETTINGS, type Mode, type Visibility } from '../store/roomSettings.ts'
@@ -67,6 +69,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
   const [voice, setVoice] = useState(DEFAULT_ROOM_SETTINGS.voice)
   const { toast, show } = useErrorToast()
   const [sending, setSending] = useState(false)
+  const isDesktop = useIsDesktop()
 
   useEffect(() => {
     let cancelled = false
@@ -137,6 +140,113 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
     }
   }
 
+  // sastav samo po ulogama koje je backend vratio – RoleComposition uz broj prikazuje i ikonu
+  const composition: Partial<Record<RoleKey, number>> = Object.fromEntries(available.map((r) => [r.key, counts[r.key]]))
+
+  const playerCountSection = (
+    <Section title="Broj igrača" aside={`od ${MIN_PLAYERS} do ${MAX_PLAYERS}`}>
+      <PlayerCount value={maxPlayers} onChange={setMaxPlayers} />
+    </Section>
+  )
+
+  const rolesSection = (
+    <Section
+      title="Uloge"
+      badge={
+        roles.status === 'ready' &&
+        (followRecommended ? (
+          <RecommendedTag />
+        ) : (
+          <LinkButton small onClick={() => setFollowRecommended(true)}>
+            Vrati preporuku
+          </LinkButton>
+        ))
+      }
+      aside={roles.status === 'ready' ? `${sum} od ${maxPlayers}` : undefined}
+    >
+      {/* desktop: sastav sobe na prvi pogled, mijenja se zajedno s brojačima */}
+      {isDesktop && roles.status === 'ready' && (
+        <div className="mb-3 flex min-h-[46px] items-center rounded-card border border-line bg-surface px-4 py-2.5">
+          {sum > 0 ? (
+            <RoleComposition counts={composition} />
+          ) : (
+            <p className="text-sm text-muted">Još nema uloga.</p>
+          )}
+        </div>
+      )}
+      <div className="rounded-card border border-line bg-surface px-4 py-1">
+        {roles.status === 'loading' && <p className="py-3 text-sm text-muted">Učitavam uloge…</p>}
+        {roles.status === 'error' && (
+          <div className="flex items-center gap-3 py-3">
+            <p role="alert" className="flex-1 text-sm leading-[1.45] text-accent">
+              {roles.message}
+            </p>
+            <LinkButton onClick={retryRoles}>Pokušaj ponovno</LinkButton>
+          </div>
+        )}
+        {roles.status === 'ready' &&
+          roles.roles.map((r) => (
+            <RoleRow key={r.key} role={r.key} value={counts[r.key]} onChange={(v) => setCount(r.key, v)} />
+          ))}
+      </div>
+      <TeamBalance mafia={mafia} town={sum - mafia} />
+      <p className="mt-2 text-[13px] leading-[1.45] text-muted">
+        Igra je najzanimljivija kad je u timu mafije otprilike četvrtina do trećina igrača.
+      </p>
+    </Section>
+  )
+
+  const modeSection = (
+    <Section title="Način igre">
+      <div className="grid grid-cols-2 gap-2.5">
+        <OptionCard
+          icon="users"
+          title="Uživo"
+          text="Svi ste u istoj prostoriji. Narator govori s domaćinova mobitela."
+          selected={mode === 'live'}
+          onSelect={() => setMode('live')}
+        />
+        <OptionCard
+          icon="globe"
+          title="Online"
+          text="Svatko igra sa svog mjesta i čuje naratora na svom mobitelu."
+          selected={mode === 'online'}
+          onSelect={() => setMode('online')}
+        />
+      </div>
+    </Section>
+  )
+
+  const visibilitySection = (
+    <Section title="Tko može ući">
+      <Segmented
+        aria-label="Vidljivost sobe"
+        options={[
+          { value: 'private', label: 'Samo s kodom' },
+          { value: 'public', label: 'Svi (javna)' },
+        ]}
+        value={visibility}
+        onChange={setVisibility}
+      />
+    </Section>
+  )
+
+  const voiceSection = (
+    <Section>
+      <div className="flex items-center gap-3.5 rounded-card border border-line bg-surface px-4 py-3.5">
+        <div className="min-w-0 flex-1">
+          <h4 className="text-[15px] font-semibold">Glas naratora</h4>
+          <p className="text-[13px] leading-[1.45] text-muted">
+            {mode === 'live'
+              ? 'Čuje se samo s tvog mobitela da ne bude jeke.'
+              : 'Svaki igrač čuje naratora na svom mobitelu.'}
+          </p>
+        </div>
+        <Switch checked={voice} onChange={setVoice} aria-label="Glas naratora" />
+      </div>
+    </Section>
+  )
+
   return (
     <ThemeRoot theme="night">
       <Screen>
@@ -146,92 +256,30 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
         </ScreenTop>
 
         <ScreenBody>
-          <Section title="Broj igrača" aside={`od ${MIN_PLAYERS} do ${MAX_PLAYERS}`}>
-            <PlayerCount value={maxPlayers} onChange={setMaxPlayers} />
-          </Section>
-
-          <Section
-            title="Uloge"
-            badge={
-              roles.status === 'ready' &&
-              (followRecommended ? (
-                <RecommendedTag />
-              ) : (
-                <LinkButton small onClick={() => setFollowRecommended(true)}>
-                  Vrati preporuku
-                </LinkButton>
-              ))
-            }
-            aside={roles.status === 'ready' ? `${sum} od ${maxPlayers}` : undefined}
-          >
-            <div className="rounded-card border border-line bg-surface px-4 py-1">
-              {roles.status === 'loading' && <p className="py-3 text-sm text-muted">Učitavam uloge…</p>}
-              {roles.status === 'error' && (
-                <div className="flex items-center gap-3 py-3">
-                  <p role="alert" className="flex-1 text-sm leading-[1.45] text-accent">
-                    {roles.message}
-                  </p>
-                  <LinkButton onClick={retryRoles}>Pokušaj ponovno</LinkButton>
-                </div>
-              )}
-              {roles.status === 'ready' &&
-                roles.roles.map((r) => (
-                  <RoleRow key={r.key} role={r.key} value={counts[r.key]} onChange={(v) => setCount(r.key, v)} />
-                ))}
-            </div>
-            <TeamBalance mafia={mafia} town={sum - mafia} />
-            <p className="mt-2 text-[13px] leading-[1.45] text-muted">
-              Igra je najzanimljivija kad je u timu mafije otprilike četvrtina do trećina igrača.
-            </p>
-          </Section>
-
-          <Section title="Način igre">
-            <div className="grid grid-cols-2 gap-2.5">
-              <OptionCard
-                icon="users"
-                title="Uživo"
-                text="Svi ste u istoj prostoriji. Narator govori s domaćinova mobitela."
-                selected={mode === 'live'}
-                onSelect={() => setMode('live')}
-              />
-              <OptionCard
-                icon="globe"
-                title="Online"
-                text="Svatko igra sa svog mjesta i čuje naratora na svom mobitelu."
-                selected={mode === 'online'}
-                onSelect={() => setMode('online')}
-              />
-            </div>
-          </Section>
-
-          <Section title="Tko može ući">
-            <Segmented
-              aria-label="Vidljivost sobe"
-              options={[
-                { value: 'private', label: 'Samo s kodom' },
-                { value: 'public', label: 'Svi (javna)' },
-              ]}
-              value={visibility}
-              onChange={setVisibility}
-            />
-          </Section>
-
-          <Section>
-            <div className="flex items-center gap-3.5 rounded-card border border-line bg-surface px-4 py-3.5">
-              <div className="min-w-0 flex-1">
-                <h4 className="text-[15px] font-semibold">Glas naratora</h4>
-                <p className="text-[13px] leading-[1.45] text-muted">
-                  {mode === 'live'
-                    ? 'Čuje se samo s tvog mobitela da ne bude jeke.'
-                    : 'Svaki igrač čuje naratora na svom mobitelu.'}
-                </p>
+          {isDesktop ? (
+            // Desktop: lijevo postavke sobe, desno uloge i sastav
+            <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-start gap-12 xl:gap-16">
+              <div>
+                {modeSection}
+                {playerCountSection}
+                {visibilitySection}
+                {voiceSection}
               </div>
-              <Switch checked={voice} onChange={setVoice} aria-label="Glas naratora" />
+              <div>{rolesSection}</div>
             </div>
-          </Section>
+          ) : (
+            <>
+              {playerCountSection}
+              {rolesSection}
+              {modeSection}
+              {visibilitySection}
+              {voiceSection}
+            </>
+          )}
         </ScreenBody>
 
-        <ScreenFooter className="border-t border-line bg-bg">
+        {/* desktop: upozorenje lijevo, gumb dolje desno normalne širine */}
+        <ScreenFooter className="border-t border-line bg-bg lg:flex-row lg:items-center lg:gap-6">
           {roles.status === 'ready' && (
             <SumLine
               diff={diff}
@@ -240,7 +288,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
             />
           )}
           {toast}
-          <Button disabled={!canSubmit} onClick={submit}>
+          <Button disabled={!canSubmit} onClick={submit} className="lg:mr-0! lg:ml-auto!">
             {sending ? 'Kreiram sobu…' : 'Kreiraj sobu'}
           </Button>
         </ScreenFooter>
@@ -357,7 +405,7 @@ type SumLineProps = { diff: number; mafiaTooBig: boolean; onFillTown?: () => voi
 function SumLine({ diff, mafiaTooBig, onFillTown }: SumLineProps) {
   const ok = diff === 0 && !mafiaTooBig
   return (
-    <div className={cx('flex min-h-6 items-center gap-2.5 text-sm', ok ? 'text-role-doktor' : 'text-accent')}>
+    <div className={cx('flex min-h-6 items-center gap-2.5 text-sm lg:flex-1', ok ? 'text-role-doktor' : 'text-accent')}>
       <Icon name={ok ? 'check' : 'info'} size={18} strokeWidth={ok ? 2.2 : 1.8} />
       <span role="status">
         {ok
@@ -369,7 +417,7 @@ function SumLine({ diff, mafiaTooBig, onFillTown }: SumLineProps) {
             : `Previše uloga: makni ${-diff}`}
       </span>
       {diff > 0 && onFillTown && (
-        <LinkButton onClick={onFillTown} className="ml-auto">
+        <LinkButton onClick={onFillTown} className="ml-auto lg:ml-2">
           Popuni građanima
         </LinkButton>
       )}

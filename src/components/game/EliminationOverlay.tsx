@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useEffect, useId, useRef } from 'react'
 import { EASE_OUT } from '../../lib/motion.ts'
 import { playerHue } from '../../lib/playerLook.ts'
+import { useIsDesktop } from '../../lib/useIsDesktop.ts'
 import Avatar from '../Avatar.tsx'
 import Button from '../Button.tsx'
 import ThemedPortal from '../ThemedPortal.tsx'
@@ -32,6 +33,8 @@ type EliminationOverlayProps = {
 export default function EliminationOverlay({ playerId, nickname, emoji, isMe, onNext }: EliminationOverlayProps) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
+  // na desktopu sve malo veće, da overlay preko cijelog prozora ne izgleda kao sitna kartica
+  const avatarSize = useIsDesktop() ? 160 : 132
   // ref da novi onNext iz roditelja ne pokreće odbrojavanje ispočetka
   const onNextRef = useRef(onNext)
   useEffect(() => {
@@ -60,10 +63,10 @@ export default function EliminationOverlay({ playerId, nickname, emoji, isMe, on
             aria-modal="true"
             aria-labelledby={titleId}
             tabIndex={-1}
-            className="relative w-full max-w-[320px] text-center outline-none"
+            className="relative w-full max-w-[320px] text-center outline-none lg:max-w-[440px]"
           >
-            <div className="relative mx-auto mb-[26px] size-[132px]">
-              <Avatar emoji={emoji} hue={playerHue(playerId)} size={132} className="animate-elim-av" />
+            <div className="relative mx-auto mb-[26px] size-[132px] lg:mb-8 lg:size-[160px]">
+              <Avatar emoji={emoji} hue={playerHue(playerId)} size={avatarSize} className="animate-elim-av" />
               <svg viewBox="0 0 132 132" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full">
                 {CRACKS.map(([d, delay]) => (
                   <path
@@ -81,12 +84,12 @@ export default function EliminationOverlay({ playerId, nickname, emoji, isMe, on
             </div>
             <h2
               id={titleId}
-              className="animate-rise text-[30px] leading-[1.15] font-bold tracking-[-.03em]"
+              className="animate-rise text-[30px] leading-[1.15] font-bold tracking-[-.03em] lg:text-[38px]"
               style={{ animationDelay: '1.25s' }}
             >
               {isMe ? 'Ispadaš iz igre' : `${nickname} ispada iz igre`}
             </h2>
-            <p className="mt-2 mb-[26px] animate-rise text-[15px] text-muted" style={{ animationDelay: '1.4s' }}>
+            <p className="mt-2 mb-[26px] animate-rise text-[15px] text-muted lg:mt-3 lg:mb-8 lg:text-base" style={{ animationDelay: '1.4s' }}>
               Uloga ostaje tajna do kraja igre.
             </p>
             <div className="animate-rise" style={{ animationDelay: '1.55s' }}>

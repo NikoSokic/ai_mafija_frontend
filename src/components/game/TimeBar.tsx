@@ -13,6 +13,8 @@ type TimeBarProps = {
   endsAt: string
   /** puno trajanje u sekundama */
   seconds: number
+  /** opis za čitač ekrana */
+  label?: string
 }
 
 // Sat uređaja ispravljen za razliku prema poslužitelju; razlika se čita svaki put jer je novo stanje može promijeniti
@@ -20,7 +22,7 @@ const serverNow = () => Date.now() + useGameStore.getState().clockOffset
 
 // Traka vremena igrača na potezu. Računa se od roka, pa ostaje točna i kad preglednik uspori.
 // Rok je najkasniji mogući: potez može završiti i ranije, kad stigne novi currentTurnRole.
-export default function TimeBar({ startsAt, endsAt, seconds }: TimeBarProps) {
+export default function TimeBar({ startsAt, endsAt, seconds, label = 'Preostalo vrijeme poteza' }: TimeBarProps) {
   const reduceMotion = useReducedMotion()
   const fillRef = useRef<HTMLSpanElement>(null)
   const end = Date.parse(endsAt)
@@ -75,7 +77,7 @@ export default function TimeBar({ startsAt, endsAt, seconds }: TimeBarProps) {
       </span>
       <span
         role="timer"
-        aria-label="Preostalo vrijeme poteza"
+        aria-label={label}
         className={cx('min-w-[3ch] text-right text-[15px] font-semibold tabular-nums', urgent ? 'text-danger' : 'text-muted')}
       >
         {left} s

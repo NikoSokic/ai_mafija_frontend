@@ -29,6 +29,7 @@ import { EASE_SPRING, riseItem } from '../lib/motion.ts'
 import { avatarOf, playerHue } from '../lib/playerLook.ts'
 import { useHeartbeat } from '../lib/useHeartbeat.ts'
 import { useHostNotice } from '../lib/useHostNotice.ts'
+import { useIsDesktop } from '../lib/useIsDesktop.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useGameStore, type Lobby } from '../store/gameStore.ts'
 import { loadProfile, saveProfile } from '../store/profile.ts'
@@ -165,6 +166,7 @@ function LobbyView({ lobby, me, onJoined, onLost, onOpenRules }: LobbyViewProps)
   const kickedMe = useGameStore((s) => s.kickedMe)
   const awayIds = useGameStore((s) => s.awayIds)
   const { toast, show } = useErrorToast()
+  const isDesktop = useIsDesktop()
   useHostNotice(becameHost, show, 'Možeš pokrenuti igru.')
 
   // Izbacio ga je domaćin (događaj PLAYER_KICKED ili heartbeat odbijen): prijava više ne vrijedi,
@@ -191,73 +193,52 @@ function LobbyView({ lobby, me, onJoined, onLost, onOpenRules }: LobbyViewProps)
   const missing = Math.max(0, maxPlayers - players.length)
   const slots = Array.from({ length: maxPlayers }, (_, i) => ({ id: i }))
 
-  return (
-    <Screen>
-      <ScreenTop>
-        {/* igrač u sobi prvo potvrdi izlazak; tko nije ušao, samo se vraća */}
-        <IconButton
-          icon="back"
-          aria-label={me ? 'Napusti sobu' : 'Na početnu'}
-          onClick={() => (me ? setLeaveOpen(true) : navigate('/'))}
-        />
-        <h2 className="flex-1 text-[17px] font-semibold tracking-[-.01em]">Soba</h2>
-        <IconButton icon="info" aria-label="Pravila igre" onClick={onOpenRules} />
-      </ScreenTop>
-
-      <ScreenBody withSky>
-        <div className="pt-2 pb-1 text-center">
-          <motion.h3 variants={riseItem} className="mb-3 text-sm text-muted">
-            Kod sobe
-          </motion.h3>
-          <CodeTiles code={code} />
-          <motion.div variants={riseItem} className="mt-3.5 flex justify-center gap-2">
-            <CopyCodeButton code={code} />
-            <InviteButton code={code} />
-          </motion.div>
-          <motion.div variants={riseItem} className="mt-3.5 flex flex-wrap justify-center gap-1.5">
-            <Chip icon={isPublic ? 'globe' : 'lock'}>{isPublic ? 'Javna' : 'Privatna'}</Chip>
-            <Chip icon={mode === 'LIVE' ? 'users' : 'globe'}>{mode === 'LIVE' ? 'Uživo' : 'Online'}</Chip>
-            <Chip icon={voiceEnabled ? 'volume' : 'mute'}>
-              {voiceEnabled ? 'Narator s glasom' : 'Narator bez glasa'}
-            </Chip>
-          </motion.div>
-          {mode === 'ONLINE' && (
-            <motion.p variants={riseItem} className="mx-auto mt-3.5 max-w-[34ch] text-[13px] leading-[1.45] text-muted">
-              Prije početka otvorite poziv na Discordu ili WhatsAppu da se čujete tijekom rasprave.
-            </motion.p>
-          )}
-        </div>
-
-        <Section title="Igrači" aside={`${players.length} od ${maxPlayers}`}>
-          <PlayerGrid
-            players={players}
-            vacant={missing}
-            hostId={hostId ?? undefined}
-            meId={meId}
-            awayIds={awayIds}
-            onKick={amHost ? (player) => setKick({ player, open: true }) : undefined}
-          />
-          <p className="mt-2.5 text-[13px] leading-[1.45] text-muted">Svaki igrač pali jedno svjetlo u gradu.</p>
-        </Section>
-
-        <Section title="Uloge u igri">
-          <RoleComposition counts={counts} />
-        </Section>
-      </ScreenBody>
-
-      {/* Svako mjesto u sobi je jedan prozor; upali se kad igrač uđe */}
-      <Skyline players={slots} stateOf={(_, i) => (i < players.length ? 'on' : 'empty')} />
-      <ScreenFooter rise className="bg-sky">
-        {!me ? (
-          <JoinForm lobby={lobby} onJoined={onJoined} />
-        ) : amHost ? (
-          <StartButton code={code} session={me.session} missing={missing} />
-        ) : (
-          <p className="pt-2 pb-1 text-center text-[13px] leading-[1.45] text-muted">
-            Igru pokreće domaćin kad se svi pridruže.
-          </p>
-        )}
-      </ScreenFooter>
+  const backButton = (
+    // igrač u sobi prvo potvrdi izlazak; tko nije ušao, samo se vraća
+    <IconButton
+      icon="back"
+      aria-label={me ? 'Napusti sobu' : 'Na početnu'}
+      onClick={() => (me ? setLeaveOpen(true) : navigate('/'))}
+    />
+  )
+  const title = <h2 className="flex-1 text-[17px] font-semibold tracking-[-.01em]">Soba</h2>
+  const chips = (
+    <motion.div
+      variants={riseItem}
+      className={cx('flex flex-wrap gap-1.5', isDesktop ? 'mt-5' : 'mt-3.5 justify-center')}
+    >
+      <Chip icon={isPublic ? 'globe' : 'lock'}>{isPublic ? 'Javna' : 'Privatna'}</Chip>
+      <Chip icon={mode === 'LIVE' ? 'users' : 'globe'}>{mode === 'LIVE' ? 'Uživo' : 'Online'}</Chip>
+      <Chip icon={voiceEnabled ? 'volume' : 'mute'}>
+        {voiceEnabled ? 'Narator s glasom' : 'Narator bez glasa'}
+      </Chip>
+    </motion.div>
+  )
+  const onlineNote = mode === 'ONLINE' && (
+    <motion.p
+      variants={riseItem}
+      className={cx('mt-3.5 text-[13px] leading-[1.45] text-muted', isDesktop ? 'max-w-prose' : 'mx-auto max-w-[34ch]')}
+    >
+      Prije početka otvorite poziv na Discordu ili WhatsAppu da se čujete tijekom rasprave.
+    </motion.p>
+  )
+  const playerGrid = (
+    <>
+      <PlayerGrid
+        players={players}
+        vacant={missing}
+        hostId={hostId ?? undefined}
+        meId={meId}
+        awayIds={awayIds}
+        onKick={amHost ? (player) => setKick({ player, open: true }) : undefined}
+      />
+      <p className="mt-2.5 text-[13px] leading-[1.45] text-muted">Svaki igrač pali jedno svjetlo u gradu.</p>
+    </>
+  )
+  // Svako mjesto u sobi je jedan prozor; upali se kad igrač uđe
+  const city = <Skyline players={slots} stateOf={(_, i) => (i < players.length ? 'on' : 'empty')} />
+  const sheets = (
+    <>
       <LeaveRoomSheet
         open={leaveOpen}
         code={code}
@@ -275,6 +256,109 @@ function LobbyView({ lobby, me, onJoined, onLost, onOpenRules }: LobbyViewProps)
       )}
       {me && amHost && <ReclaimHostSheet code={code} />}
       {toast}
+    </>
+  )
+
+  // Desktop: lijevo kod sobe, postavke, uloge i pravila; desno igrači. Grad je ispod oba stupca,
+  // a na tlu (podnožju) dolje desno je gumb za početak, poruka gostu ili ulazak u sobu.
+  if (isDesktop) {
+    return (
+      <Screen>
+        <ScreenTop>
+          {backButton}
+          {title}
+        </ScreenTop>
+
+        <ScreenBody withSky>
+          <div className="grid grid-cols-[440px_minmax(0,1fr)] items-start gap-8 py-2">
+            <motion.section variants={riseItem} className="rounded-card border border-line bg-surface p-6">
+              <h3 className="mb-3 text-sm text-muted">Kod sobe</h3>
+              <CodeTiles code={code} large className="justify-start" />
+              <div className="mt-4 flex gap-2">
+                <CopyLinkButton code={code} />
+                <CopyCodeButton code={code} />
+              </div>
+              {chips}
+              {onlineNote}
+              <h3 className="mt-7 mb-3 text-[15px] font-semibold">Uloge u igri</h3>
+              <RoleComposition counts={counts} />
+              <Button variant="ghost" size="sm" className="mt-6" onClick={onOpenRules}>
+                <Icon name="info" size={17} />
+                <span>Pravila</span>
+              </Button>
+            </motion.section>
+
+            <motion.section variants={riseItem} className="rounded-card border border-line bg-surface p-6">
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h3 className="text-[17px] font-semibold">Igrači</h3>
+                <span className="text-sm text-muted tabular-nums">
+                  {players.length} od {maxPlayers} igrača
+                </span>
+              </div>
+              {playerGrid}
+            </motion.section>
+          </div>
+        </ScreenBody>
+
+        {city}
+        <ScreenFooter rise className="bg-sky lg:items-end">
+          {!me ? (
+            <JoinForm lobby={lobby} onJoined={onJoined} inline />
+          ) : amHost ? (
+            <StartButton code={code} session={me.session} missing={missing} />
+          ) : (
+            <p className="pt-2 pb-1 text-[15px] text-muted">Čekamo domaćina…</p>
+          )}
+        </ScreenFooter>
+        {sheets}
+      </Screen>
+    )
+  }
+
+  return (
+    <Screen>
+      <ScreenTop>
+        {backButton}
+        {title}
+        <IconButton icon="info" aria-label="Pravila igre" onClick={onOpenRules} />
+      </ScreenTop>
+
+      <ScreenBody withSky>
+        <div className="pt-2 pb-1 text-center">
+          <motion.h3 variants={riseItem} className="mb-3 text-sm text-muted">
+            Kod sobe
+          </motion.h3>
+          <CodeTiles code={code} />
+          <motion.div variants={riseItem} className="mt-3.5 flex justify-center gap-2">
+            <CopyCodeButton code={code} />
+            <InviteButton code={code} />
+          </motion.div>
+          {chips}
+          {onlineNote}
+        </div>
+
+        <Section title="Igrači" aside={`${players.length} od ${maxPlayers}`}>
+          {playerGrid}
+        </Section>
+
+        <Section title="Uloge u igri">
+          <RoleComposition counts={counts} />
+        </Section>
+      </ScreenBody>
+
+      {city}
+      <ScreenFooter rise className="bg-sky">
+        {!me ? (
+          <JoinForm lobby={lobby} onJoined={onJoined} />
+        ) : amHost ? (
+          <StartButton code={code} session={me.session} missing={missing} />
+        ) : (
+          <p className="pt-2 pb-1 text-center text-[13px] leading-[1.45] text-muted">
+            Igru pokreće domaćin kad se svi pridruže.
+          </p>
+        )}
+      </ScreenFooter>
+      {sheets}
     </Screen>
   )
 }
@@ -297,11 +381,12 @@ type PlayerGridProps = {
   onKick?: (player: LobbyPlayerResponse) => void
 }
 
-// Mreža 2 stupca. Igrači koji su već u sobi pri otvaranju se ne animiraju (initial={false}),
+// Mreža 2 stupca (desktop 3, na xl 4). Igrači koji su već u sobi pri otvaranju se ne animiraju (initial={false}),
 // a svaki novi uskoči spring animacijom na mjesto prvog praznog.
 function PlayerGrid({ players, vacant, hostId, meId, awayIds, onKick }: PlayerGridProps) {
+  const isDesktop = useIsDesktop()
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 lg:gap-3 xl:grid-cols-4">
       <AnimatePresence initial={false}>
         {players.map((p) => (
           <motion.div
@@ -309,16 +394,20 @@ function PlayerGrid({ players, vacant, hostId, meId, awayIds, onKick }: PlayerGr
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, ease: EASE_SPRING }}
-            className="flex min-h-[60px] items-center gap-2.5 rounded-tile border border-line bg-surface py-2 pr-2.5 pl-2"
+            className={cx(
+              'flex min-h-[60px] items-center gap-2.5 rounded-tile border border-line bg-surface py-2 pr-2.5 pl-2',
+              // desktop: okomita pločica (avatar gore), da ime stane i u 4 stupca
+              'lg:relative lg:min-h-[132px] lg:flex-col lg:justify-center lg:gap-2 lg:px-3 lg:pt-4 lg:pb-3.5',
+            )}
           >
             <Avatar
               emoji={avatarOf(p)}
               hue={playerHue(p.id)}
-              size={42}
+              size={isDesktop ? 52 : 42}
               host={p.id === hostId}
             />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center">
+            <div className="min-w-0 flex-1 lg:w-full lg:flex-none lg:text-center">
+              <div className="flex items-center lg:justify-center">
                 <span className="truncate text-[15px] font-semibold">{p.nickname}</span>
                 {p.id === meId && <MeTag />}
               </div>
@@ -331,7 +420,7 @@ function PlayerGrid({ players, vacant, hostId, meId, awayIds, onKick }: PlayerGr
                 icon="x"
                 iconSize={16}
                 aria-label={`Izbaci igrača ${p.nickname}`}
-                className="size-8 rounded-[10px]"
+                className="size-8 rounded-[10px] lg:absolute lg:top-1.5 lg:right-1.5"
                 onClick={() => onKick(p)}
               />
             )}
@@ -341,7 +430,7 @@ function PlayerGrid({ players, vacant, hostId, meId, awayIds, onKick }: PlayerGr
           <div
             // ključ je redni broj mjesta, pa novi igrač zamijeni baš prvo prazno mjesto
             key={`vacant-${players.length + i}`}
-            className="flex min-h-[60px] items-center justify-center gap-2 rounded-tile border border-dashed border-line text-sm text-muted"
+            className="flex min-h-[60px] items-center justify-center gap-2 rounded-tile border border-dashed border-line text-sm text-muted lg:min-h-[132px]"
           >
             <span aria-hidden="true" className="size-1.5 animate-breathe rounded-full bg-muted" />
             Čeka se igrač
@@ -375,6 +464,23 @@ function CopyCodeButton({ code }: { code: string }) {
     >
       <Icon name={copied ? 'check' : 'copy'} size={17} strokeWidth={copied ? 2.2 : 1.8} />
       <span>{copied ? 'Kopirano' : 'Kopiraj kod'}</span>
+    </Button>
+  )
+}
+
+// Desktop: link sobe se odmah kopira, bez Web Share (na računalu bi otvorio sistemski izbornik za dijeljenje)
+function CopyLinkButton({ code }: { code: string }) {
+  const [copied, flash] = useFlash()
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={async () => {
+        if (await copyText(`${window.location.origin}/soba/${code}`)) flash()
+      }}
+    >
+      <Icon name={copied ? 'check' : 'share'} size={17} strokeWidth={copied ? 2.2 : 1.8} />
+      <span>{copied ? 'Link kopiran' : 'Kopiraj link'}</span>
     </Button>
   )
 }
@@ -426,17 +532,23 @@ function StartButton({ code, session, missing }: StartButtonProps) {
   return (
     <>
       {toast}
-      <Button disabled={missing > 0 || sending} onClick={start}>
+      {/* desktop: dolje desno (gumb je na lg inače centriran s mx-auto) */}
+      <Button disabled={missing > 0 || sending} className="lg:mr-0!" onClick={start}>
         {missing > 0 ? `Čeka se još ${missing}` : sending ? 'Pokrećem igru…' : 'Pokreni igru'}
       </Button>
     </>
   )
 }
 
-type JoinFormProps = { lobby: Lobby; onJoined: (session: Session) => void }
+type JoinFormProps = {
+  lobby: Lobby
+  onJoined: (session: Session) => void
+  /** desktop: polje i gumb u jednom retku, dolje desno */
+  inline?: boolean
+}
 
 // Ulazak preko linka za poziv: igrač na ovom uređaju još nije u sobi
-function JoinForm({ lobby, onJoined }: JoinFormProps) {
+function JoinForm({ lobby, onJoined, inline = false }: JoinFormProps) {
   const [nickname, setNickname] = useState(() => loadProfile()?.nickname ?? '')
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
@@ -483,7 +595,13 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
   }
 
   return (
-    <form noValidate onSubmit={submit} className="flex flex-col gap-2.5">
+    <form
+      noValidate
+      onSubmit={submit}
+      className={
+        inline ? 'grid w-[600px] grid-cols-[minmax(0,1fr)_auto] items-end gap-x-3 gap-y-2' : 'flex flex-col gap-2.5'
+      }
+    >
       <div>
         <label htmlFor={inputId} className="mb-2 block text-sm text-muted">
           Tvoj nadimak
@@ -504,11 +622,11 @@ function JoinForm({ lobby, onJoined }: JoinFormProps) {
         />
       </div>
       {error && (
-        <p id={errorId} role="alert" className="text-sm leading-[1.45] text-accent">
+        <p id={errorId} role="alert" className={cx('text-sm leading-[1.45] text-accent', inline && 'col-span-2 row-start-2')}>
           {error}
         </p>
       )}
-      <Button type="submit" disabled={sending}>
+      <Button type="submit" disabled={sending} className={inline ? 'col-start-2 row-start-1 lg:mx-0!' : undefined}>
         {sending ? 'Ulazim u sobu…' : 'Uđi u sobu'}
       </Button>
       {toast}

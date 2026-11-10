@@ -18,7 +18,10 @@ const variants: Record<ButtonVariant, string> = {
 }
 
 const sizes: Record<ButtonSize, string> = {
-  lg: 'h-14 w-full rounded-ctrl text-[17px]',
+  // Na desktopu gumb ne ide preko cijelog okvira: širok koliko treba (barem 280 px) i centriran.
+  // w-fit, a ne w-auto: gumb je display:flex, pa bi se s w-auto u običnom bloku opet razvukao.
+  // mx-auto centrira i u bloku i u flex stupcu (tamo fiksna širina isključi razvlačenje).
+  lg: 'h-14 w-full rounded-ctrl text-[17px] lg:mx-auto lg:w-fit lg:min-w-[280px] lg:px-10',
   // .btn-sm – npr. "Uđi" / "Puna" na kartici javne sobe
   sm: 'h-10 w-auto rounded-xl px-4 text-[15px]',
   // "+30 s" i "Preskoči" uz timer rasprave

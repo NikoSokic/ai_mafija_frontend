@@ -11,6 +11,8 @@ import { wakeServer, whenServerReady } from './store/server.ts'
 
 // Galerija komponenti samo u dev načinu – ne ulazi u produkcijski build
 const DevPage = import.meta.env.DEV ? lazy(() => import('./pages/DevPage.tsx')) : null
+// Pravi ekrani s izmišljenim podacima (za mobilne snimke) – isto samo u dev načinu
+const DevScreensPage = import.meta.env.DEV ? lazy(() => import('./pages/DevScreensPage.tsx')) : null
 
 export default function App() {
   return (
@@ -28,6 +30,16 @@ export default function App() {
             element={
               <Suspense>
                 <DevPage />
+              </Suspense>
+            }
+          />
+        )}
+        {DevScreensPage && (
+          <Route
+            path="/dev/screens/*"
+            element={
+              <Suspense>
+                <DevScreensPage />
               </Suspense>
             }
           />

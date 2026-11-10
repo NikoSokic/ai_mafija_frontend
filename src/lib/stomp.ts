@@ -26,7 +26,17 @@ const CLOSE_DELAY_MS = 1000
 // Jedna SockJS/STOMP veza i jedna pretplata po kodu sobe
 const connections = new Map<string, Connection>()
 
+type Subscribe = (code: string, listener: LobbyListener) => () => void
+
+// /dev/screens: izmišljena veza bez poslužitelja. Postavlja se samo u dev načinu.
+let devSubscribe: Subscribe | null = null
+
+export function setDevSubscribe(impl: Subscribe | null) {
+  if (import.meta.env.DEV) devSubscribe = impl
+}
+
 export function subscribeToLobby(code: string, listener: LobbyListener): () => void {
+  if (devSubscribe) return devSubscribe(code, listener)
   let conn = connections.get(code)
   if (!conn) {
     conn = open(code)

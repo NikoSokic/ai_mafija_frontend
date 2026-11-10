@@ -31,3 +31,6 @@ scripts/.bots/
 
 # /brag promo video (renderi i radne datoteke)
 brag-output*/
+
+# Mobilne snimke (scripts/mobile-snapshots.mjs)
+scripts/.snapshots/

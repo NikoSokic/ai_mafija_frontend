@@ -37,10 +37,20 @@ export class ApiError extends Error {
   }
 }
 
+// /dev/screens: izmišljeni odgovori umjesto mreže. Postavlja se samo u dev načinu,
+// pa u produkciji svi zahtjevi idu ravno na fetch.
+let devFetch: typeof fetch | null = null
+
+export function setDevFetch(impl: typeof fetch | null) {
+  if (import.meta.env.DEV) devFetch = impl
+}
+
+const send: typeof fetch = (input, init) => (devFetch ?? fetch)(input, init)
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await send(`${API_URL}${path}`, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     })
@@ -68,7 +78,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // Buđenje servera: nikad ne baca, samo kaže je li odgovorio
 export async function getHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(8000) })
+    const res = await send(`${API_URL}/api/health`, { signal: AbortSignal.timeout(8000) })
     return res.ok
   } catch {
     return false

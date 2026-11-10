@@ -13,6 +13,7 @@ import Segmented from '../components/Segmented.tsx'
 import ThemeRoot from '../components/ThemeRoot.tsx'
 import { DEFAULT_EMOJI } from '../data/emojis.ts'
 import { riseItem } from '../lib/motion.ts'
+import { useIsDesktop } from '../lib/useIsDesktop.ts'
 import { playerHue } from '../lib/playerLook.ts'
 
 const REFRESH_MS = 5000
@@ -35,6 +36,7 @@ export default function PublicRoomsPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
+  const isDesktop = useIsDesktop()
 
   const load = useCallback(
     () =>
@@ -64,6 +66,7 @@ export default function PublicRoomsPage() {
   }, [load])
 
   const list = (rooms ?? []).filter((r) => filter === 'all' || r.mode === filter)
+  const cards = list.map((room) => <RoomCard key={room.code} room={room} onJoin={() => navigate(`/soba/${room.code}`)} />)
 
   return (
     <ThemeRoot theme="night">
@@ -79,7 +82,7 @@ export default function PublicRoomsPage() {
           />
         </ScreenTop>
         <ScreenBody>
-          <motion.div variants={riseItem} className="mb-4">
+          <motion.div variants={riseItem} className="mb-4 lg:mb-6 lg:max-w-md">
             <Segmented
               aria-label="Način igre"
               options={FILTERS}
@@ -89,7 +92,7 @@ export default function PublicRoomsPage() {
           </motion.div>
 
           {rooms === null && error ? (
-            <motion.div variants={riseItem} className="px-3 py-12 text-center">
+            <motion.div variants={riseItem} className="px-3 py-12 text-center lg:py-[16vh]">
               <p role="alert" className="mb-4 text-[13px] leading-[1.45] text-muted">
                 {error}
               </p>
@@ -98,11 +101,11 @@ export default function PublicRoomsPage() {
               </Button>
             </motion.div>
           ) : rooms === null ? (
-            <p role="status" className="px-3 py-12 text-center text-sm text-muted">
+            <p role="status" className="px-3 py-12 text-center text-sm text-muted lg:py-[16vh]">
               Učitavam sobe…
             </p>
           ) : list.length === 0 ? (
-            <motion.div variants={riseItem} className="px-3 py-12 text-center">
+            <motion.div variants={riseItem} className="px-3 py-12 text-center lg:py-[16vh]">
               <h4 className="mb-1.5 text-[17px] font-semibold">
                 {filter === 'all'
                   ? 'Trenutno nema soba'
@@ -116,8 +119,11 @@ export default function PublicRoomsPage() {
                 Kreiraj sobu
               </Button>
             </motion.div>
+          ) : isDesktop ? (
+            // desktop: kartice u mreži, 2 stupca na lg, 3 na xl
+            <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">{cards}</div>
           ) : (
-            list.map((room) => <RoomCard key={room.code} room={room} onJoin={() => navigate(`/soba/${room.code}`)} />)
+            cards
           )}
         </ScreenBody>
       </Screen>
@@ -130,7 +136,7 @@ function RoomCard({ room, onJoin }: { room: PublicLobbyResponse; onJoin: () => v
   return (
     <motion.article
       variants={riseItem}
-      className="mb-2.5 grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-tile border border-line bg-surface p-3.5"
+      className="mb-2.5 grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-tile border border-line bg-surface p-3.5 lg:mb-0 lg:p-4"
     >
       <Avatar emoji={room.hostAvatarEmoji || DEFAULT_EMOJI} hue={hueOf(room.code)} size={44} host />
       <div className="min-w-0">
