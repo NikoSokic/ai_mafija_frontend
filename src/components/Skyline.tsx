@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { cx } from '../lib/cx.ts'
 import { seededRandom } from '../lib/seededRandom.ts'
+import { useIsDesktop } from '../lib/useIsDesktop.ts'
 
 export type WindowState = 'on' | 'off' | 'empty'
 
@@ -10,20 +11,39 @@ const BUILDINGS: [number, number, number][] = [
   [214, 44, 72], [256, 30, 124], [284, 48, 86], [330, 30, 104], [358, 32, 70],
 ]
 
+type Deco = { x: number; y: number; opacity: number }
+
 // Ukrasni prozori 3 × 5, ~13 % upaljeno. Fiksni seed i izračun jednom – ne mijenjaju se pri renderu.
-const DECO = (() => {
-  const rnd = seededRandom(11)
-  const out: { x: number; y: number; opacity: number }[] = []
-  for (const [x, w, h] of BUILDINGS) {
+function decoWindows(buildings: [number, number, number][], seed: number, dim = 1): Deco[] {
+  const rnd = seededRandom(seed)
+  const out: Deco[] = []
+  for (const [x, w, h] of buildings) {
     for (let y = 140 - h + 10; y < 134; y += 10) {
       for (let xx = x + 5; xx < x + w - 6; xx += 8) {
         const r = rnd()
-        if (r < 0.13) out.push({ x: xx, y, opacity: Number((0.12 + r * 2.2).toFixed(2)) })
+        if (r < 0.13) out.push({ x: xx, y, opacity: Number(((0.12 + r * 2.2) * dim).toFixed(2)) })
       }
     }
   }
   return out
-})()
+}
+
+const DECO = decoWindows(BUILDINGS, 11)
+
+// Desktop: grad ide preko cijele širine prozora. Srednji dio (0–390) je isti grad s prozorima igrača,
+// a lijevo i desno su po dva ukrasna dijela – zrcaljene zgrade druge visine, samo s ukrasnim prozorima.
+const SIDE_TILES = [-2, -1, 1, 2]
+const DESKTOP_VIEWBOX = '-780 0 1950 140'
+const SIDE = SIDE_TILES.map((tile) => {
+  const rnd = seededRandom(100 + tile)
+  const buildings = BUILDINGS.map(([x, w, h]): [number, number, number] => [
+    // susjedni dio je zrcaljen, pa se ne vidi da se uzorak ponavlja
+    tile * 390 + (tile % 2 ? 390 - x - w : x),
+    w,
+    Math.round(Math.min(130, h * (0.7 + rnd() * 0.45))),
+  ])
+  return { tile, buildings, deco: decoWindows(buildings, 40 + tile, 0.8) }
+})
 
 // Prozor igrača i (redoslijed ulaska): zgrada (i*4+1) % 11, red floor(i/11) – stane do 20 igrača
 function windowPosition(i: number) {
@@ -47,12 +67,14 @@ export default function Skyline<T extends { id: number | string }>({
 }: SkylineProps<T>) {
   // jedinstven id filtera, jer na stranici može biti više gradova
   const glowId = `winglow${useId().replace(/[^\w-]/g, '')}`
+  const isDesktop = useIsDesktop()
 
   return (
-    <div className={cx('pointer-events-none relative z-[4] h-0 shrink-0', className)}>
+    // Desktop: grad izlazi iz okvira ekrana preko cijele širine prozora, viši je i stoji iza sadržaja (z-1)
+    <div className={cx('pointer-events-none relative z-[4] h-0 shrink-0 lg:z-[1]', className)}>
       <svg
-        className="absolute inset-x-0 -bottom-px h-32 w-full"
-        viewBox="0 0 390 140"
+        className="absolute inset-x-0 -bottom-px h-32 w-full lg:right-auto lg:left-[calc(50%-50vw)] lg:h-[clamp(180px,26vh,280px)] lg:w-screen"
+        viewBox={isDesktop ? DESKTOP_VIEWBOX : '0 0 390 140'}
         preserveAspectRatio="xMidYMax slice"
         aria-hidden="true"
       >
@@ -65,6 +87,7 @@ export default function Skyline<T extends { id: number | string }>({
             </feMerge>
           </filter>
         </defs>
+        {isDesktop && <SideCity />}
         <g className="fill-sky">
           {BUILDINGS.map(([x, w, h]) => (
             <rect key={x} x={x} y={140 - h} width={w} height={h} />
@@ -80,6 +103,26 @@ export default function Skyline<T extends { id: number | string }>({
         ))}
       </svg>
     </div>
+  )
+}
+
+// Ukrasne zgrade lijevo i desno od grada igrača (samo desktop)
+function SideCity() {
+  return (
+    <>
+      <g className="fill-sky">
+        {SIDE.flatMap(({ tile, buildings }) =>
+          buildings.map(([x, w, h]) => <rect key={`${tile}-${x}`} x={x} y={140 - h} width={w} height={h} />),
+        )}
+      </g>
+      <g className="fill-window">
+        {SIDE.flatMap(({ tile, deco }) =>
+          deco.map((d) => (
+            <rect key={`${tile}-${d.x}-${d.y}`} x={d.x} y={d.y} width={3} height={5} opacity={d.opacity} />
+          )),
+        )}
+      </g>
+    </>
   )
 }
 

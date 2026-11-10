@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { describeError, resolveNight, submitAction } from '../../api/rest.ts'
 import type { ActionResponse, AvailableActionResponse, GameStateResponse } from '../../api/types.ts'
 import { ROLES, type RoleKey } from '../../data/roles.ts'
+import { cx } from '../../lib/cx.ts'
 import { riseItem, riseList } from '../../lib/motion.ts'
 import { avatarById, playerHue } from '../../lib/playerLook.ts'
+import { useIsDesktop } from '../../lib/useIsDesktop.ts'
 import { addNote, type NightNote, type NoteTarget } from '../../store/notes.ts'
 import type { Mode } from '../../store/roomSettings.ts'
 import type { Session } from '../../store/session.ts'
@@ -12,10 +14,12 @@ import Button from '../Button.tsx'
 import HoldButton from '../HoldButton.tsx'
 import { Icon } from '../icons.tsx'
 import PlayerTile from '../PlayerTile.tsx'
-import { Screen, ScreenBody, ScreenFooter } from '../Screen.tsx'
+import { Screen, ScreenFooter } from '../Screen.tsx'
 import Skyline from '../Skyline.tsx'
 import Toast from '../Toast.tsx'
 import TurnBadge from '../TurnBadge.tsx'
+import { GameBody } from './GameLayout.tsx'
+import { GAME_FOOTER } from './gameSidebarContext.ts'
 import HostConfirmSheet from './HostConfirmSheet.tsx'
 import NightResult from './NightResult.tsx'
 import { nightText } from './nightConfig.ts'
@@ -45,6 +49,17 @@ const RUNOFF_S = 10
 // Lokalni korak nakon potvrde. Nakon osvježavanja stranice ostaje samo hasActed iz backenda.
 type Step = { kind: 'pick' } | { kind: 'result'; note: NightNote } | { kind: 'sent' }
 
+// Desktop: odabir mete u kartici, rezultat u užem stupcu, a poruke (spavanje, poslano, promatrač)
+// okomito centrirane iznad grada (min-h-full ScreenBodyja je prostor iznad grada)
+const DESKTOP_WRAP: Record<string, string> = {
+  action: 'mx-auto w-full max-w-[760px] rounded-card border border-line bg-surface/60 p-7',
+  runoff: 'mx-auto w-full max-w-[760px] rounded-card border border-line bg-surface/60 p-7',
+  result: 'mx-auto w-full max-w-[480px] text-center',
+  observer: 'flex min-h-full flex-col justify-center',
+  sent: 'flex min-h-full flex-col justify-center',
+  sleep: 'flex min-h-full flex-col justify-center',
+}
+
 // tekst ostaje i nakon zatvaranja, da toast ne ostane prazan dok izlazi
 type ErrorToast = { open: boolean; title: string; text: string }
 
@@ -68,6 +83,7 @@ export default function NightView({
   const [error, setError] = useState<ErrorToast>({ open: false, title: '', text: '' })
   const [endOpen, setEndOpen] = useState(false)
   const [ending, setEnding] = useState(false)
+  const isDesktop = useIsDesktop()
 
   // ako se ekran ugasi dok igrač gleda rezultat, prelazak u dan više ne čeka
   useEffect(() => () => onHoldChange(false), [onHoldChange])
@@ -214,14 +230,14 @@ export default function NightView({
         </motion.div>
         <motion.h3
           variants={riseItem}
-          className="mt-1.5 mb-2 max-w-[18ch] text-[26px] leading-[1.15] font-bold tracking-[-.025em]"
+          className="mt-1.5 mb-2 max-w-[18ch] text-[26px] leading-[1.15] font-bold tracking-[-.025em] lg:mt-3 lg:max-w-none lg:text-[30px]"
         >
           {runoff ? 'Niste se složili' : text.question}
         </motion.h3>
-        <motion.p variants={riseItem} className="mb-[18px] max-w-[36ch] text-[15px] leading-[1.45] text-muted">
+        <motion.p variants={riseItem} className="mb-[18px] max-w-[36ch] text-[15px] leading-[1.45] text-muted lg:mb-6 lg:max-w-prose">
           {runoff ? 'Ako se ne složite, odlučit će slučaj.' : text.hint}
         </motion.p>
-        <motion.div variants={riseItem} className="grid grid-cols-3 gap-2">
+        <motion.div variants={riseItem} className="grid grid-cols-3 gap-2 lg:gap-3 xl:grid-cols-4">
           {targets.map((p) => {
             const tag = tagFor(p.id, action)
             const isMe = p.id === me.playerId
@@ -246,7 +262,7 @@ export default function NightView({
     )
     footer = (
       <>
-        <div aria-live="polite" className="mb-0.5 flex min-h-6 items-center gap-2.5 text-[15px] text-muted">
+        <div aria-live="polite" className="mb-0.5 flex min-h-6 items-center gap-2.5 text-[15px] text-muted lg:justify-center">
           {alreadySent && waitingForTeammate ? (
             <span>Čekamo suigrača…</span>
           ) : alreadySent ? (
@@ -271,20 +287,26 @@ export default function NightView({
     )
   } else {
     const noAction = role ? ROLES[role].action === null : false
-    main = <Sleep noAction={noAction} live={mode === 'live'} />
+    main = <Sleep noAction={noAction} live={mode === 'live'} desktop={isDesktop} />
   }
 
   return (
     <Screen>
       <PhaseHeader icon="moon" title={`Noć ${round}`} role={role} code={code} />
-      <ScreenBody withSky>
+      <GameBody withSky>
         {/* svako stanje ulazi iznova (spec 8), npr. kad igrač dođe na red */}
-        <motion.div key={view} variants={riseList} initial="hidden" animate="show">
+        <motion.div
+          key={view}
+          variants={riseList}
+          initial="hidden"
+          animate="show"
+          className={isDesktop ? DESKTOP_WRAP[view] : undefined}
+        >
           {main}
         </motion.div>
-      </ScreenBody>
+      </GameBody>
       <Skyline players={players} stateOf={(p) => (p.alive ? 'on' : 'off')} />
-      <ScreenFooter rise className="bg-sky">
+      <ScreenFooter rise className={cx('bg-sky', GAME_FOOTER)}>
         {footer}
         {isHost && (
           // osigurač ako noć zapne (spec 10.2) – samo domaćin, uz potvrdu
@@ -332,7 +354,7 @@ function noteFrom(response: ActionResponse, round: number, targets: NoteTarget[]
 
 function Observer({ fate }: { fate: string }) {
   return (
-    <div className="flex flex-col items-center px-2.5 pt-[34px] text-center">
+    <div className="flex flex-col items-center px-2.5 pt-[34px] text-center lg:pt-0">
       <motion.div
         variants={riseItem}
         className="mb-[22px] grid size-[84px] animate-[floaty_5s_ease-in-out_infinite] place-items-center rounded-full bg-surface text-muted"
@@ -351,7 +373,7 @@ function Observer({ fate }: { fate: string }) {
 
 function Sent() {
   return (
-    <div className="flex flex-col items-center px-2 pt-10 text-center">
+    <div className="flex flex-col items-center px-2 pt-10 text-center lg:pt-0">
       <motion.div
         variants={riseItem}
         className="mb-5 grid size-[84px] place-items-center rounded-full bg-accent-soft text-accent"
@@ -384,9 +406,10 @@ const MOON_FACE = 'radial-gradient(circle at 36% 40%, #fff4e0, #ffd9a0 40%, #d9a
 // izreže polumjesec iz punog kruga
 const MOON_MASK = 'radial-gradient(circle at 76% 30%, transparent 43%, #000 44%)'
 
-function Sleep({ noAction, live }: { noAction: boolean; live: boolean }) {
+// uživo na desktopu nema mobitela koji bi se spustio ekranom prema dolje
+function Sleep({ noAction, live, desktop }: { noAction: boolean; live: boolean; desktop: boolean }) {
   return (
-    <div className="flex flex-col items-center px-2.5 pt-[34px] text-center">
+    <div className="flex flex-col items-center px-2.5 pt-[34px] text-center lg:pt-0">
       <motion.div variants={riseItem} aria-hidden="true" className="relative mb-7 size-[120px] animate-floaty">
         <span className="absolute -inset-10 rounded-full bg-[radial-gradient(circle,rgba(255,210,122,.16),transparent_65%)]" />
         <span
@@ -399,7 +422,11 @@ function Sleep({ noAction, live }: { noAction: boolean; live: boolean }) {
       </motion.h3>
       <motion.p variants={riseItem} className="max-w-[30ch] text-base leading-[1.5] text-muted">
         {noAction ? 'Nemaš noćnu akciju.' : 'Probudit ćeš se kad narator prozove tvoju ulogu.'}{' '}
-        {live ? 'Zatvori oči i spusti mobitel ekranom prema dolje.' : 'Pričekaj naratora.'}
+        {live
+          ? desktop
+            ? 'Zatvori oči i ne gledaj u ekran.'
+            : 'Zatvori oči i spusti mobitel ekranom prema dolje.'
+          : 'Pričekaj naratora.'}
       </motion.p>
       <motion.div variants={riseItem} aria-hidden="true" className="mt-[22px] flex gap-1.5">
         {[0, 0.3, 0.6].map((delay) => (

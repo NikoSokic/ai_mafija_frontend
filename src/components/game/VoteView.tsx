@@ -8,6 +8,7 @@ import { riseItem } from '../../lib/motion.ts'
 import { avatarById, playerHue } from '../../lib/playerLook.ts'
 import { formatSeconds } from '../../lib/time.ts'
 import { useCountdown } from '../../lib/useCountdown.ts'
+import { useIsDesktop } from '../../lib/useIsDesktop.ts'
 import { useGameStore } from '../../store/gameStore.ts'
 import type { Session } from '../../store/session.ts'
 import Avatar from '../Avatar.tsx'
@@ -16,12 +17,15 @@ import Button from '../Button.tsx'
 import Chip from '../Chip.tsx'
 import HoldButton from '../HoldButton.tsx'
 import { Icon } from '../icons.tsx'
-import { Screen, ScreenBody, ScreenFooter } from '../Screen.tsx'
+import { Screen, ScreenFooter } from '../Screen.tsx'
 import Skyline from '../Skyline.tsx'
 import Toast from '../Toast.tsx'
 import VoteCard from '../VoteCard.tsx'
+import { GameBody } from './GameLayout.tsx'
+import { GAME_FOOTER } from './gameSidebarContext.ts'
 import HostConfirmSheet from './HostConfirmSheet.tsx'
 import PhaseHeader from './PhaseHeader.tsx'
+import TimeBar from './TimeBar.tsx'
 
 // Glasanje traje 60 s (docs/pravila-igre.md); rok broji server
 const VOTING_S = 60
@@ -70,6 +74,7 @@ export default function VoteView({ code, round, role, session, game, tieBreak, i
   const [sent, setSent] = useState<Choice | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<ErrorToast>({ open: false, title: '', text: '' })
+  const isDesktop = useIsDesktop()
   const [endOpen, setEndOpen] = useState(false)
   const [ending, setEnding] = useState(false)
   const [dimmedId, setDimmedId] = useState<number | null>(null)
@@ -143,6 +148,84 @@ export default function VoteView({ code, round, role, session, game, tieBreak, i
   const title = tieBreak ? 'Ponovno glasanje' : 'Glasanje'
   const alive = me?.alive ?? false
 
+  const banners = (
+    <>
+      {tieBreak && (
+        <Banner icon="vote" title="Izjednačeno">
+          {joinNames(tied.map(nicknameOf))} imaju isti broj glasova. Glasaj ponovno samo između njih.
+          {tied.includes(meId) && ' Ti si u izjednačenju pa ovaj put ne glasaš.'}
+        </Banner>
+      )}
+      {!alive && (
+        <Banner icon="ghost" title="Promatraš glasanje">
+          Ispali igrači ne glasaju.
+        </Banner>
+      )}
+      {alive && silenced.includes(meId) && (
+        <Banner icon="mute" title="Utišan si">
+          Danas ne smiješ glasati.
+        </Banner>
+      )}
+    </>
+  )
+
+  const voterDots = (
+    <span aria-hidden="true" className="flex gap-[5px]">
+      {voterIds.map((id) => (
+        <i
+          key={id}
+          className={cx('size-[7px] rounded-full [transition:background-color_.3s]', votedIds.has(id) ? 'bg-accent' : 'bg-line')}
+        />
+      ))}
+    </span>
+  )
+
+  const candidateCards = candidates.map((p) => {
+    const isMe = p.id === meId
+    const selected = shownChoice?.target === p.id
+    const count = countOf(p.id)
+    return (
+      <VoteCard
+        key={p.id}
+        name={isMe ? 'Ti' : p.nickname}
+        face={
+          <Avatar
+            emoji={emojiOf(p.id)}
+            hue={playerHue(p.id)}
+            size={56}
+            host={p.id === hostId}
+            muted={silenced.includes(p.id)}
+            selected={selected}
+          />
+        }
+        count={count}
+        leading={count > 0 && count === top}
+        share={voterIds.length ? count / voterIds.length : 0}
+        voters={votersFor(p.id)}
+        selected={selected}
+        disabled={!canVote || isMe}
+        onSelect={() => toggle(p.id)}
+      />
+    )
+  })
+
+  // na mobitelu kartica u mreži, na desktopu vodoravni gumb ispod nje
+  const abstainSelected = shownChoice !== null && shownChoice.target === null
+  const abstainCard = (row: boolean) => (
+    <VoteCard
+      name="Suzdržan"
+      face={<AbstainFace selected={abstainSelected} small={row} />}
+      count={countOf(null)}
+      leading={countOf(null) > 0 && countOf(null) === top}
+      share={voterIds.length ? countOf(null) / voterIds.length : 0}
+      voters={votersFor(null)}
+      selected={abstainSelected}
+      disabled={!canVote}
+      onSelect={() => toggle(null)}
+      row={row}
+    />
+  )
+
   return (
     <Screen>
       <PhaseHeader
@@ -152,93 +235,51 @@ export default function VoteView({ code, round, role, session, game, tieBreak, i
         code={code}
         aside={<Chip className="mr-1.5">Dan {round}</Chip>}
       />
-      <ScreenBody withSky>
-        {tieBreak && (
-          <Banner icon="vote" title="Izjednačeno">
-            {joinNames(tied.map(nicknameOf))} imaju isti broj glasova. Glasaj ponovno samo između njih.
-            {tied.includes(meId) && ' Ti si u izjednačenju pa ovaj put ne glasaš.'}
-          </Banner>
-        )}
-        {!alive && (
-          <Banner icon="ghost" title="Promatraš glasanje">
-            Ispali igrači ne glasaju.
-          </Banner>
-        )}
-        {alive && silenced.includes(meId) && (
-          <Banner icon="mute" title="Utišan si">
-            Danas ne smiješ glasati.
-          </Banner>
-        )}
+      <GameBody withSky>
+        {isDesktop ? (
+          // Desktop: banner, pa sve u jednoj kartici – tko je glasao i traka vremena, mreža kandidata, "Suzdržan"
+          <div className="mx-auto w-full max-w-[760px]">
+            {banners}
+            <motion.div variants={riseItem} className="rounded-card border border-line bg-surface/60 p-7">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-base font-semibold tabular-nums">
+                  Glasalo {votes.length} od {voterIds.length}
+                </span>
+                {voterDots}
+              </div>
+              {shownGame.phaseEndsAt && (
+                <TimeBar endsAt={shownGame.phaseEndsAt} seconds={VOTING_S} label="Preostalo vrijeme glasanja" />
+              )}
+              <div className="mt-5 grid grid-cols-3 gap-3 xl:grid-cols-4">{candidateCards}</div>
+              {!tieBreak && <div className="mt-3">{abstainCard(true)}</div>}
+            </motion.div>
+          </div>
+        ) : (
+          <>
+            {banners}
 
-        <motion.div variants={riseItem} className="mb-3 flex items-center justify-between gap-3 text-sm text-muted">
-          <span className="tabular-nums">
-            Glasalo {votes.length} od {voterIds.length} · {formatSeconds(timer.left)}
-          </span>
-          <span aria-hidden="true" className="flex gap-[5px]">
-            {voterIds.map((id) => (
-              <i
-                key={id}
-                className={cx(
-                  'size-[7px] rounded-full [transition:background-color_.3s]',
-                  votedIds.has(id) ? 'bg-accent' : 'bg-line',
-                )}
-              />
-            ))}
-          </span>
-        </motion.div>
+            <motion.div variants={riseItem} className="mb-3 flex items-center justify-between gap-3 text-sm text-muted">
+              <span className="tabular-nums">
+                Glasalo {votes.length} od {voterIds.length} · {formatSeconds(timer.left)}
+              </span>
+              {voterDots}
+            </motion.div>
 
-        <motion.div variants={riseItem} className="grid grid-cols-2 gap-2.5">
-          {candidates.map((p) => {
-            const isMe = p.id === meId
-            const selected = shownChoice?.target === p.id
-            const count = countOf(p.id)
-            return (
-              <VoteCard
-                key={p.id}
-                name={isMe ? 'Ti' : p.nickname}
-                face={
-                  <Avatar
-                    emoji={emojiOf(p.id)}
-                    hue={playerHue(p.id)}
-                    size={56}
-                    host={p.id === hostId}
-                    muted={silenced.includes(p.id)}
-                    selected={selected}
-                  />
-                }
-                count={count}
-                leading={count > 0 && count === top}
-                share={voterIds.length ? count / voterIds.length : 0}
-                voters={votersFor(p.id)}
-                selected={selected}
-                disabled={!canVote || isMe}
-                onSelect={() => toggle(p.id)}
-              />
-            )
-          })}
-          {!tieBreak && (
-            <VoteCard
-              name="Suzdržan"
-              face={<AbstainFace selected={shownChoice !== null && shownChoice.target === null} />}
-              count={countOf(null)}
-              leading={countOf(null) > 0 && countOf(null) === top}
-              share={voterIds.length ? countOf(null) / voterIds.length : 0}
-              voters={votersFor(null)}
-              selected={shownChoice !== null && shownChoice.target === null}
-              disabled={!canVote}
-              onSelect={() => toggle(null)}
-            />
-          )}
-        </motion.div>
-      </ScreenBody>
+            <motion.div variants={riseItem} className="grid grid-cols-2 gap-2.5">
+              {candidateCards}
+              {!tieBreak && abstainCard(false)}
+            </motion.div>
+          </>
+        )}
+      </GameBody>
       <Skyline
         players={livePlayers}
         stateOf={(p) => ((p.id === eliminatingId && dimmedId !== eliminatingId) || p.alive ? 'on' : 'off')}
       />
-      <ScreenFooter rise className="bg-sky">
+      <ScreenFooter rise className={cx('bg-sky', GAME_FOOTER)}>
         {canVote ? (
           <>
-            <div aria-live="polite" className="mb-0.5 flex min-h-6 items-center gap-2.5 text-[15px] text-muted">
+            <div aria-live="polite" className="mb-0.5 flex min-h-6 items-center gap-2.5 text-[15px] text-muted lg:justify-center">
               {choice ? (
                 <span>
                   Tvoj glas: <b className="font-semibold text-text">{choiceName(choice)}</b>
@@ -294,17 +335,18 @@ export default function VoteView({ code, round, role, session, game, tieBreak, i
 }
 
 // Krug umjesto avatara na kartici "Suzdržan"; odabran ima isti prsten kao Avatar
-function AbstainFace({ selected }: { selected: boolean }) {
+function AbstainFace({ selected, small = false }: { selected: boolean; small?: boolean }) {
   return (
     <span
       aria-hidden="true"
       className={cx(
-        'grid size-14 place-items-center rounded-full bg-surface-2 text-muted',
+        'grid place-items-center rounded-full bg-surface-2 text-muted',
+        small ? 'size-10 shrink-0' : 'size-14',
         '[transition:box-shadow_.25s,scale_.25s_cubic-bezier(.34,1.56,.64,1)]',
         selected && 'scale-[1.04] shadow-[0_0_0_3px_var(--bg),0_0_0_5.5px_var(--accent)]',
       )}
     >
-      <Icon name="minus" size={26} />
+      <Icon name="minus" size={small ? 20 : 26} />
     </span>
   )
 }

@@ -40,7 +40,7 @@ export default function NarratorSheet({ narration, ...rest }: NarratorSheetProps
   }, [narration])
 
   return (
-    <Sheet open={narration !== null} onClose={() => {}} dismissable={false} aria-label="Narator">
+    <Sheet open={narration !== null} onClose={() => {}} dismissable={false} aria-label="Narator" wide>
       {/* key: nova naracija kreće ispočetka, a stara pri izlasku prekida govor */}
       {narration && <NarratorBody key={narration.key} narration={narration} {...rest} />}
     </Sheet>

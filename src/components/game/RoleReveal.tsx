@@ -16,7 +16,9 @@ import IconButton from '../IconButton.tsx'
 import { Icon } from '../icons.tsx'
 import RoleIcon from '../RoleIcon.tsx'
 import RulesSheet from '../RulesSheet.tsx'
-import { Screen, ScreenBody, ScreenFooter, ScreenTop } from '../Screen.tsx'
+import { useIsDesktop } from '../../lib/useIsDesktop.ts'
+import { Screen, ScreenFooter, ScreenTop } from '../Screen.tsx'
+import { GameBody } from './GameLayout.tsx'
 
 type RoleRevealProps = {
   role: RoleKey
@@ -52,6 +54,7 @@ export default function RoleReveal({
   const [rulesOpen, setRulesOpen] = useState(false)
   const hold = mode === 'live'
   const info = ROLES[role]
+  const isDesktop = useIsDesktop()
 
   function handlePointerDown(e: PointerEvent<HTMLDivElement>) {
     if (!hold) return
@@ -66,93 +69,160 @@ export default function RoleReveal({
     if (!e.repeat) setOpen((o) => !o)
   }
 
+  const teamList = teammates.length > 0 && (
+    <ul className={cx('flex flex-wrap gap-2', isDesktop ? 'mt-2.5' : 'mt-3.5 justify-center')}>
+      {teammates.map((t) => {
+        const mate = t.roleName in ROLES ? ROLES[t.roleName as RoleKey] : null
+        return (
+          <li
+            key={t.playerId}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-surface-2 pr-3 pl-1 text-[13px] font-medium"
+          >
+            <Avatar emoji={avatarById(players, t.playerId)} hue={playerHue(t.playerId)} size={24} />
+            {t.nickname}
+            <span style={{ color: mate?.color }}>{mate?.name ?? t.roleName}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+
+  // Desktop: na poleđini karte su samo ikona, ime i tim; opis i suigrači su pokraj nje
+  const card = (
+    <motion.div
+      variants={riseItem}
+      role="button"
+      tabIndex={0}
+      aria-pressed={open}
+      aria-label={hold ? 'Drži za prikaz uloge' : 'Dodirni za prikaz uloge'}
+      className={cx(
+        isDesktop ? 'w-[clamp(220px,36vh,300px)] shrink-0' : 'mt-2.5 mb-[18px] w-[min(270px,74vw)]',
+        'aspect-[3/4.2] cursor-pointer touch-none [perspective:1200px] select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]',
+      )}
+      onPointerDown={handlePointerDown}
+      onPointerUp={hold ? () => setOpen(false) : undefined}
+      onPointerCancel={hold ? () => setOpen(false) : undefined}
+      onClick={hold ? undefined : () => setOpen((o) => !o)}
+      onKeyDown={handleKeyDown}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <div
+        className={cx(
+          'relative size-full [transform-style:preserve-3d]',
+          'transition-transform duration-[750ms] ease-spring motion-reduce:duration-0',
+          open && '[transform:rotateY(180deg)]',
+        )}
+      >
+        <div
+          aria-hidden={open}
+          className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden rounded-[26px] border border-line bg-surface p-[22px] [backface-visibility:hidden]"
+        >
+          <CardPattern className="absolute inset-0 size-full opacity-45" />
+          <div className="relative mt-auto grid size-[76px] place-items-center rounded-full border border-line bg-bg text-accent">
+            <Icon name="eye" size={30} strokeWidth={1.6} />
+          </div>
+          <div className="relative mt-auto rounded-full border border-line bg-bg px-3.5 py-2 text-[15px] font-semibold">
+            {hold ? 'Drži za prikaz' : 'Dodirni za prikaz'}
+          </div>
+        </div>
+
+        <div
+          aria-hidden={!open}
+          className="absolute inset-0 flex [transform:rotateY(180deg)] flex-col items-center justify-center overflow-hidden rounded-[26px] border border-line p-[22px] [backface-visibility:hidden]"
+          style={{
+            background: `linear-gradient(180deg, color-mix(in srgb, ${info.color} 22%, var(--surface)) 0, var(--surface) 62%)`,
+          }}
+        >
+          {open && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 -translate-x-[120%] animate-shine bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,.16)_45%,transparent_60%)] motion-reduce:animate-none"
+            />
+          )}
+          <RoleIcon role={role} size={84} iconSize={46} className="mb-[18px]" />
+          <h3 className="text-[38px] font-bold tracking-[-.035em]" style={{ color: info.color }}>
+            {info.name}
+          </h3>
+          <div className="mt-1 mb-3.5 text-sm text-muted">
+            {info.team === 'mafia' ? 'Tim mafije' : 'Tim građana'}
+          </div>
+          {!isDesktop && <p className="max-w-[24ch] text-[15px] leading-[1.45]">{info.long}</p>}
+          {!isDesktop && teamList}
+        </div>
+      </div>
+    </motion.div>
+  )
+
+  const readyBlock = ready ? (
+    <ReadyWait code={code} session={session} isHost={isHost} players={players} readyIds={readyPlayerIds} />
+  ) : (
+    <>
+      <HoldButton onConfirm={onReady}>Spreman sam</HoldButton>
+      <p className="text-center text-[13px] text-muted">Drži gumb da potvrdiš.</p>
+    </>
+  )
+
+  // Desktop: karta lijevo, opis i suigrači desno od nje – u DOM-u samo dok je karta otvorena (uživo dok se
+  // drži, online dok je okrenuta). Spremnost je ispod, u istom stupcu. Grada nema, kao na mobitelu;
+  // Pravila su u bočnoj ploči.
+  if (isDesktop) {
+    return (
+      <Screen>
+        <ScreenTop>
+          <span className="flex-1" />
+        </ScreenTop>
+        <GameBody>
+          <div className="mx-auto flex max-w-[720px] flex-col items-center pt-2">
+            <motion.p variants={riseItem} className="text-muted">
+              Igra počinje. Tvoja uloga je tajna.
+            </motion.p>
+            <div className="mt-6 flex items-center gap-10 self-stretch">
+              {card}
+              <motion.div variants={riseItem} aria-live="polite" className="min-w-0 flex-1">
+                {open ? (
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35 }}>
+                    <h3 className="text-[34px] font-bold tracking-[-.03em]" style={{ color: info.color }}>
+                      {info.name}
+                    </h3>
+                    <div className="mt-0.5 text-sm text-muted">{info.team === 'mafia' ? 'Tim mafije' : 'Tim građana'}</div>
+                    <p className="mt-4 max-w-prose text-base leading-[1.5]">{info.long}</p>
+                    {teammates.length > 0 && (
+                      <>
+                        <h4 className="mt-6 text-sm font-semibold">Tvoj tim</h4>
+                        {teamList}
+                      </>
+                    )}
+                    {!hold && <p className="mt-6 text-[13px] text-muted">Dodirni kartu ponovno za skrivanje.</p>}
+                  </motion.div>
+                ) : (
+                  <p className="max-w-[30ch] text-[15px] leading-[1.5] text-muted">
+                    {hold ? 'Uloga se vidi samo dok držiš kartu, da je drugi ne vide.' : 'Dodirni kartu za prikaz uloge.'}
+                  </p>
+                )}
+              </motion.div>
+            </div>
+            <motion.div variants={riseItem} className="mt-8 flex w-full flex-col gap-2.5">
+              {readyBlock}
+            </motion.div>
+          </div>
+        </GameBody>
+      </Screen>
+    )
+  }
+
   return (
     <Screen>
       <ScreenTop>
         <span className="flex-1" />
         <IconButton icon="info" aria-label="Pravila igre" onClick={() => setRulesOpen(true)} />
       </ScreenTop>
-      <ScreenBody>
+      <GameBody>
         <div className="flex flex-col items-center pt-1.5 text-center">
           <motion.p variants={riseItem} className="text-muted">
             Igra počinje. Tvoja uloga je tajna.
           </motion.p>
 
-          <motion.div
-            variants={riseItem}
-            role="button"
-            tabIndex={0}
-            aria-pressed={open}
-            aria-label={hold ? 'Drži za prikaz uloge' : 'Dodirni za prikaz uloge'}
-            className="mt-2.5 mb-[18px] aspect-[3/4.2] w-[min(270px,74vw)] cursor-pointer touch-none [perspective:1200px] select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
-            onPointerDown={handlePointerDown}
-            onPointerUp={hold ? () => setOpen(false) : undefined}
-            onPointerCancel={hold ? () => setOpen(false) : undefined}
-            onClick={hold ? undefined : () => setOpen((o) => !o)}
-            onKeyDown={handleKeyDown}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            <div
-              className={cx(
-                'relative size-full [transform-style:preserve-3d]',
-                'transition-transform duration-[750ms] ease-spring motion-reduce:duration-0',
-                open && '[transform:rotateY(180deg)]',
-              )}
-            >
-              <div
-                aria-hidden={open}
-                className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden rounded-[26px] border border-line bg-surface p-[22px] [backface-visibility:hidden]"
-              >
-                <CardPattern className="absolute inset-0 size-full opacity-45" />
-                <div className="relative mt-auto grid size-[76px] place-items-center rounded-full border border-line bg-bg text-accent">
-                  <Icon name="eye" size={30} strokeWidth={1.6} />
-                </div>
-                <div className="relative mt-auto rounded-full border border-line bg-bg px-3.5 py-2 text-[15px] font-semibold">
-                  {hold ? 'Drži za prikaz' : 'Dodirni za prikaz'}
-                </div>
-              </div>
-
-              <div
-                aria-hidden={!open}
-                className="absolute inset-0 flex [transform:rotateY(180deg)] flex-col items-center justify-center overflow-hidden rounded-[26px] border border-line p-[22px] [backface-visibility:hidden]"
-                style={{
-                  background: `linear-gradient(180deg, color-mix(in srgb, ${info.color} 22%, var(--surface)) 0, var(--surface) 62%)`,
-                }}
-              >
-                {open && (
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 -translate-x-[120%] animate-shine bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,.16)_45%,transparent_60%)] motion-reduce:animate-none"
-                  />
-                )}
-                <RoleIcon role={role} size={84} iconSize={46} className="mb-[18px]" />
-                <h3 className="text-[38px] font-bold tracking-[-.035em]" style={{ color: info.color }}>
-                  {info.name}
-                </h3>
-                <div className="mt-1 mb-3.5 text-sm text-muted">
-                  {info.team === 'mafia' ? 'Tim mafije' : 'Tim građana'}
-                </div>
-                <p className="max-w-[24ch] text-[15px] leading-[1.45]">{info.long}</p>
-                {teammates.length > 0 && (
-                  <ul className="mt-3.5 flex flex-wrap justify-center gap-2">
-                    {teammates.map((t) => {
-                      const mate = t.roleName in ROLES ? ROLES[t.roleName as RoleKey] : null
-                      return (
-                        <li
-                          key={t.playerId}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-full bg-surface-2 pr-3 pl-1 text-[13px] font-medium"
-                        >
-                          <Avatar emoji={avatarById(players, t.playerId)} hue={playerHue(t.playerId)} size={24} />
-                          {t.nickname}
-                          <span style={{ color: mate?.color }}>{mate?.name ?? t.roleName}</span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </motion.div>
+          {card}
 
           <motion.p variants={riseItem} className="max-w-[30ch] text-[13px] text-muted">
             {hold
@@ -160,17 +230,8 @@ export default function RoleReveal({
               : 'Dodirni ponovno za skrivanje.'}
           </motion.p>
         </div>
-      </ScreenBody>
-      <ScreenFooter rise>
-        {ready ? (
-          <ReadyWait code={code} session={session} isHost={isHost} players={players} readyIds={readyPlayerIds} />
-        ) : (
-          <>
-            <HoldButton onConfirm={onReady}>Spreman sam</HoldButton>
-            <p className="text-center text-[13px] text-muted">Drži gumb da potvrdiš.</p>
-          </>
-        )}
-      </ScreenFooter>
+      </GameBody>
+      <ScreenFooter rise>{readyBlock}</ScreenFooter>
       <RulesSheet open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </Screen>
   )

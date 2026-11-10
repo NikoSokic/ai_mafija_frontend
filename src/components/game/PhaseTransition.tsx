@@ -69,14 +69,14 @@ export default function PhaseTransition({ kind, title, subtitle, onSwap, onDone 
           transition={{ duration: 0.95, ease: EASE_OUT }}
         />
         <motion.div
-          className="absolute top-[30%] left-1/2 -ml-[60px] size-[120px] rounded-full"
+          className="absolute top-[30%] left-1/2 -ml-[60px] size-[120px] rounded-full lg:-ml-[75px] lg:size-[150px]"
           style={ORBIT[kind]}
           initial={{ opacity: 0, y: 180, scale: 0.7 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 1.3, delay: 0.35, ease: EASE_OUT }}
         />
         <div className="absolute inset-x-0 top-[52%] text-center text-white">
-          <h2 aria-hidden="true" className="text-[64px] leading-none font-bold tracking-[-.045em]">
+          <h2 aria-hidden="true" className="text-[64px] leading-none font-bold tracking-[-.045em] lg:text-[88px]">
             {[...title].map((char, i) => (
               <motion.span
                 key={i}
@@ -90,7 +90,7 @@ export default function PhaseTransition({ kind, title, subtitle, onSwap, onDone 
             ))}
           </h2>
           <motion.p
-            className="mt-3 text-[17px] text-white/85"
+            className="mt-3 text-[17px] text-white/85 lg:mt-4 lg:text-xl"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 1, ease: EASE_OUT }}

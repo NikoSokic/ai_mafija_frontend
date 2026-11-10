@@ -17,6 +17,8 @@ type VoteCardProps = {
   selected: boolean
   disabled: boolean
   onSelect: () => void
+  /** vodoravna kartica preko cijele širine (desktop: "Suzdržan" ispod mreže) */
+  row?: boolean
 }
 
 // 1 glas, 2–4 glasa, 5+ glasova (11–14 glasova)
@@ -40,7 +42,27 @@ export default function VoteCard({
   selected,
   disabled,
   onSelect,
+  row = false,
 }: VoteCardProps) {
+  const countClass = cx('text-xl font-bold tabular-nums [transition:color_.3s]', leading ? 'text-accent' : 'text-muted')
+  const voterList = (
+    <span className={cx('flex min-h-[22px]', row && 'flex-1')}>
+      {voters.map((v) => (
+        <span key={v.id} className="animate-drop-in not-first:-ml-1.5">
+          <Avatar emoji={v.emoji} hue={playerHue(v.id)} size={22} className="shadow-[0_0_0_2px_var(--surface)]" />
+        </span>
+      ))}
+    </span>
+  )
+  const shareBar = (
+    <span className={cx('h-1 overflow-hidden rounded-full bg-line', row ? 'absolute inset-x-4 bottom-2.5' : 'w-full')}>
+      <span
+        className="block h-full bg-accent [transition:width_.5s_cubic-bezier(.2,.8,.2,1)]"
+        style={{ width: `${Math.round(share * 100)}%` }}
+      />
+    </span>
+  )
+
   return (
     <button
       type="button"
@@ -49,36 +71,32 @@ export default function VoteCard({
       aria-label={`${name}: ${votesLabel(count)}`}
       onClick={disabled ? undefined : onSelect}
       className={cx(
-        'relative flex flex-col items-center gap-2 rounded-tile border px-2.5 pt-4 pb-3',
+        row
+          ? 'relative flex w-full items-center gap-3.5 rounded-tile border px-4 pt-3 pb-5 text-left'
+          : 'relative flex flex-col items-center gap-2 rounded-tile border px-2.5 pt-4 pb-3',
         '[transition:border-color_.25s,background-color_.25s,scale_.2s_cubic-bezier(.34,1.56,.64,1)]',
         '[-webkit-tap-highlight-color:transparent]',
         selected ? 'border-accent bg-accent-soft' : 'border-line bg-surface',
-        disabled ? 'cursor-default' : 'cursor-pointer active:scale-[.97]',
+        disabled ? 'cursor-default' : cx('cursor-pointer', row ? 'active:scale-[.99]' : 'active:scale-[.97]'),
       )}
     >
-      <span
-        className={cx(
-          'absolute top-2.5 right-3 text-xl font-bold tabular-nums [transition:color_.3s]',
-          leading ? 'text-accent' : 'text-muted',
-        )}
-      >
-        {count}
-      </span>
-      {face}
-      <span className="max-w-full truncate text-[15px] font-semibold">{name}</span>
-      <span className="flex min-h-[22px]">
-        {voters.map((v) => (
-          <span key={v.id} className="animate-drop-in not-first:-ml-1.5">
-            <Avatar emoji={v.emoji} hue={playerHue(v.id)} size={22} className="shadow-[0_0_0_2px_var(--surface)]" />
-          </span>
-        ))}
-      </span>
-      <span className="h-1 w-full overflow-hidden rounded-full bg-line">
-        <span
-          className="block h-full bg-accent [transition:width_.5s_cubic-bezier(.2,.8,.2,1)]"
-          style={{ width: `${Math.round(share * 100)}%` }}
-        />
-      </span>
+      {row ? (
+        <>
+          {face}
+          <span className="text-[15px] font-semibold">{name}</span>
+          {voterList}
+          <span className={countClass}>{count}</span>
+          {shareBar}
+        </>
+      ) : (
+        <>
+          <span className={cx('absolute top-2.5 right-3', countClass)}>{count}</span>
+          {face}
+          <span className="max-w-full truncate text-[15px] font-semibold">{name}</span>
+          {voterList}
+          {shareBar}
+        </>
+      )}
     </button>
   )
 }

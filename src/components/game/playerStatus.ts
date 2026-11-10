@@ -17,3 +17,11 @@ export function endFateText(player: LobbyPlayerResponse) {
   if (player.eliminatedHow === 'LEFT') return 'Napustio igru'
   return 'Ispao'
 }
+
+// Stanje igrača u bočnoj ploči (desktop). Utišanost se prosljeđuje samo danju – noću bi otkrila potez Dame.
+export function sidebarStatus(player: LobbyPlayerResponse, opts: { silenced: boolean; away: boolean }) {
+  if (!player.alive) return endFateText(player)
+  if (opts.away) return 'Nije tu'
+  if (opts.silenced) return 'Utišan'
+  return 'Živ'
+}

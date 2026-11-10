@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { EASE_OUT } from '../lib/motion.ts'
+import { useIsDesktop } from '../lib/useIsDesktop.ts'
 import IconButton from './IconButton.tsx'
 import ThemedPortal from './ThemedPortal.tsx'
-
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -19,10 +19,28 @@ type SheetProps = {
   dismissable?: boolean
   /** kad sheet nema naslov */
   'aria-label'?: string
+  /** širi modal na desktopu (560 umjesto 480 px), npr. za dulji tekst naratora */
+  wide?: boolean
   children?: ReactNode
 }
 
-// Donji sheet sa zamagljenom pozadinom
+// Mobitel: donja ladica koja izlazi odozdo. Desktop (≥ 1024 px): centrirani modal koji izraste iz sredine.
+// opacity i scale su i u mobilnom cilju (tamo su već 1, pa se ništa ne vidi): ako se prozor suzi
+// usred ulaska desktop modala, panel ne smije ostati poluproziran ili umanjen.
+const PANEL_MOTION = {
+  mobile: {
+    initial: { y: '100%' },
+    animate: { y: 0, opacity: 1, scale: 1, transition: { duration: 0.5, ease: EASE_OUT } },
+    exit: { y: '100%', transition: { duration: 0.3, ease: EASE_OUT } },
+  },
+  desktop: {
+    initial: { opacity: 0, scale: 0.96, y: 12 },
+    animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.25, ease: EASE_OUT } },
+    exit: { opacity: 0, scale: 0.97, y: 8, transition: { duration: 0.18, ease: EASE_OUT } },
+  },
+}
+
+// Sheet sa zamagljenom pozadinom
 export default function Sheet(props: SheetProps) {
   return (
     <ThemedPortal>
@@ -38,10 +56,12 @@ function SheetPanel({
   showClose = false,
   dismissable = true,
   'aria-label': ariaLabel,
+  wide = false,
   children,
 }: SheetProps) {
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
+  const motionOf = PANEL_MOTION[useIsDesktop() ? 'desktop' : 'mobile']
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -99,12 +119,18 @@ function SheetPanel({
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : ariaLabel}
         tabIndex={-1}
-        className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[90dvh] w-full max-w-[420px] overflow-y-auto rounded-t-sheet border-t border-line bg-surface px-5 pt-2.5 pb-[calc(22px+env(safe-area-inset-bottom))] outline-none [scrollbar-width:none]"
-        initial={{ y: '100%' }}
-        animate={{ y: 0, transition: { duration: 0.5, ease: EASE_OUT } }}
-        exit={{ y: '100%', transition: { duration: 0.3, ease: EASE_OUT } }}
+        className={[
+          'fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[90dvh] w-full max-w-[420px] overflow-y-auto rounded-t-sheet border-t border-line bg-surface px-5 pt-2.5 pb-[calc(22px+env(safe-area-inset-bottom))] outline-none [scrollbar-width:none]',
+          // desktop: inset-0 + m-auto + h-fit centrira panel bez transforma (transform pripada animaciji)
+          'lg:inset-0 lg:m-auto lg:h-fit lg:max-h-[85dvh] lg:w-[calc(100%-48px)] lg:rounded-sheet lg:border lg:px-7 lg:pt-6 lg:pb-7 lg:shadow-[0_30px_80px_-24px_rgba(0,0,0,.65)]',
+          wide ? 'lg:max-w-[560px]' : 'lg:max-w-[480px]',
+        ].join(' ')}
+        initial={motionOf.initial}
+        animate={motionOf.animate}
+        exit={motionOf.exit}
       >
-        <div aria-hidden="true" className="mx-auto mb-4 h-[5px] w-10 rounded-full bg-line" />
+        {/* ručka ladice; modal na desktopu je nema */}
+        <div aria-hidden="true" className="mx-auto mb-4 h-[5px] w-10 rounded-full bg-line lg:hidden" />
         {(title || showClose) && (
           <div className="flex items-center gap-2">
             {title && (

@@ -9,6 +9,8 @@ import { useErrorToast } from '../components/ErrorToast.tsx'
 import DayView from '../components/game/DayView.tsx'
 import EliminationOverlay from '../components/game/EliminationOverlay.tsx'
 import EndView from '../components/game/EndView.tsx'
+import { GameSidebarContext } from '../components/game/gameSidebarContext.ts'
+import GameSidebar from '../components/game/GameSidebar.tsx'
 import NarratorSheet from '../components/game/NarratorSheet.tsx'
 import NightView from '../components/game/NightView.tsx'
 import PhaseTransition from '../components/game/PhaseTransition.tsx'
@@ -33,6 +35,7 @@ import { avatarOf } from '../lib/playerLook.ts'
 import type { Theme } from '../lib/theme.ts'
 import { useHeartbeat } from '../lib/useHeartbeat.ts'
 import { useHostNotice } from '../lib/useHostNotice.ts'
+import { useIsDesktop } from '../lib/useIsDesktop.ts'
 import { useLobbySocket } from '../lib/useLobbySocket.ts'
 import { useStayAwake } from '../lib/useStayAwake.ts'
 import { useGameStore } from '../store/gameStore.ts'
@@ -163,6 +166,7 @@ function narrationsOf(
 function GameScreen({ code, session }: { code: string; session: Session }) {
   useLobbySocket(code)
   const reduceMotion = useReducedMotion()
+  const isDesktop = useIsDesktop()
   const lobbyError = useGameStore((s) => s.lobbyError)
   const connection = useGameStore((s) => s.connection)
   const publicState = useGameStore((s) => s.publicState)
@@ -447,9 +451,30 @@ function GameScreen({ code, session }: { code: string; session: Session }) {
     }
   }
 
+  // Bočna ploča postoji samo na desktopu (ne skriva se klasom – spec "Desktop" u CLAUDE.md). Igrači su iz
+  // istog stanja kao ekran: noć crta grad iz gameState, pa ploča ne otkrije smrt prije grada.
+  let sidebar = null
+  if (isDesktop && content && shown && snap) {
+    const players = shown.view === 'night' && gameState ? gameState.players : snap.players
+    sidebar = (
+      <GameSidebar
+        phase={shown.view === 'role' ? 'Podjela uloga' : shown.view === 'night' ? 'Noć' : 'Dan'}
+        round={shown.round}
+        players={players}
+        meId={session.playerId}
+        hostId={lobby?.code === code ? lobby.hostPlayerId : null}
+        role={role}
+        mode={mode}
+        teammates={gameState?.currentPlayer.teammates ?? []}
+        silencedIds={daylight(shown.view) ? snap.silencedPlayerIds : []}
+      />
+    )
+  }
+
   return (
     <ThemeRoot theme={theme}>
-      {content}
+      {/* bez DOM-a: samo daje ploču ekranima koji koriste GameBody */}
+      <GameSidebarContext value={sidebar}>{content}</GameSidebarContext>
       {errorToast}
       {isHost && <ReclaimHostSheet code={code} />}
       {!content && !loadError && !transition && (

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { describeError, leaveLobby, rematchLobby } from '../../api/rest.ts'
 import type { LobbyPlayerResponse, Winner } from '../../api/types.ts'
 import { isRoleKey, ROLES, type RoleKey, type Team } from '../../data/roles.ts'
+import { cx } from '../../lib/cx.ts'
 import { EASE_SPRING, riseItem } from '../../lib/motion.ts'
 import { avatarById, playerHue } from '../../lib/playerLook.ts'
 import { useGameStore } from '../../store/gameStore.ts'
@@ -33,6 +34,13 @@ type EndViewProps = {
   myRole: RoleKey | null
   isHost: boolean
 }
+
+// Desktop: tim je kartica; podnožje ima iste rubove kao mreža timova (960 px), pa su gumbi desno ispod nje.
+// Domaćinu flex-row-reverse: glavni gumb je skroz desno, a redoslijed u DOM-u (i na mobitelu) ostaje isti.
+// Gostu je "Čekamo domaćina…" lijevo od gumba.
+const TEAM_CARD = 'lg:rounded-card lg:border lg:border-line lg:bg-surface/60 lg:px-6 lg:pt-5 lg:pb-2'
+const END_FOOTER = 'lg:items-center lg:gap-5 lg:px-[max(2.5rem,calc((100%-960px)/2))]'
+const END_BUTTON = 'lg:mx-0! lg:min-w-[220px]!'
 
 const GROUPS: { team: Team; label: string; color: string }[] = [
   { team: 'mafia', label: 'Tim mafije', color: 'var(--role-mafia)' },
@@ -103,7 +111,8 @@ export default function EndView({ code, session, players, winner, round, myRole,
       <ScreenBody withSky>
         <Headline title={title} sentence={sentence} round={round} />
 
-        <motion.div variants={riseItem}>
+        {/* desktop: timovi u dva stupca, svaki u svojoj kartici */}
+        <motion.div variants={riseItem} className="lg:mx-auto lg:grid lg:max-w-[960px] lg:grid-cols-2 lg:items-start lg:gap-6">
           {GROUPS.map(({ team, label, color }) => {
             const rows = sorted.filter((p) => {
               const role = roleOf(p)
@@ -111,8 +120,8 @@ export default function EndView({ code, session, players, winner, round, myRole,
             })
             if (!rows.length) return null
             return (
-              <section key={team}>
-                <h3 className="mt-[22px] mb-1.5 flex items-center gap-2 text-[15px] font-semibold">
+              <section key={team} className={TEAM_CARD}>
+                <h3 className="mt-[22px] mb-1.5 flex items-center gap-2 text-[15px] font-semibold lg:mt-0 lg:mb-1 lg:text-base">
                   <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
                   {label}
                   {(team === 'mafia') === mafiaWin && <Chip className="h-[22px] px-2 text-xs">pobjeda</Chip>}
@@ -124,8 +133,8 @@ export default function EndView({ code, session, players, winner, round, myRole,
             )
           })}
           {unknown.length > 0 && (
-            <section>
-              <h3 className="mt-[22px] mb-1.5 text-[15px] font-semibold">Igrači</h3>
+            <section className={cx(TEAM_CARD, 'lg:col-span-2')}>
+              <h3 className="mt-[22px] mb-1.5 text-[15px] font-semibold lg:mt-0 lg:mb-1 lg:text-base">Igrači</h3>
               {unknown.map((p) => (
                 <FateRow key={p.id} player={p} meId={meId} emoji={emojiOf(p.id)} role={null} />
               ))}
@@ -135,13 +144,17 @@ export default function EndView({ code, session, players, winner, round, myRole,
       </ScreenBody>
 
       <Skyline players={sorted} stateOf={(p) => (p.alive ? 'on' : 'off')} />
-      <ScreenFooter rise className="bg-sky">
+      <ScreenFooter rise className={cx(
+          'bg-sky',
+          END_FOOTER,
+          isHost ? 'lg:flex-row-reverse lg:justify-start' : 'lg:flex-row lg:justify-end',
+        )}>
         {isHost ? (
           <>
-            <Button disabled={restarting} onClick={playAgain}>
+            <Button disabled={restarting} onClick={playAgain} className={END_BUTTON}>
               {restarting ? 'Pokrećem novu igru…' : 'Igraj ponovno'}
             </Button>
-            <Button variant="ghost" onClick={goHome}>
+            <Button variant="ghost" onClick={goHome} className={END_BUTTON}>
               Na početnu
             </Button>
           </>
@@ -151,7 +164,9 @@ export default function EndView({ code, session, players, winner, round, myRole,
               <span aria-hidden="true" className="size-1.5 animate-breathe rounded-full bg-muted" />
               Čekamo domaćina…
             </p>
-            <Button onClick={goHome}>Na početnu</Button>
+            <Button onClick={goHome} className={END_BUTTON}>
+              Na početnu
+            </Button>
           </>
         )}
       </ScreenFooter>
@@ -165,11 +180,11 @@ function Headline({ title, sentence, round }: { title: string; sentence: string;
   const reduceMotion = useReducedMotion()
   let index = 0
   return (
-    <div className="pt-[30px] pb-[18px] text-center">
-      <motion.p variants={riseItem} className="mb-2.5 text-[15px] text-muted">
+    <div className="pt-[30px] pb-[18px] text-center lg:pt-6 lg:pb-9">
+      <motion.p variants={riseItem} className="mb-2.5 text-[15px] text-muted lg:mb-4 lg:text-base">
         Kraj igre nakon {round} dana
       </motion.p>
-      <h1 aria-label={title} className="text-[54px] leading-[.95] font-bold tracking-[-.045em] text-accent">
+      <h1 aria-label={title} className="text-[54px] leading-[.95] font-bold tracking-[-.045em] text-accent lg:text-[80px]">
         {title.split(' ').map((word, wi) => (
           <span key={wi}>
             {wi > 0 && ' '}
@@ -193,7 +208,7 @@ function Headline({ title, sentence, round }: { title: string; sentence: string;
           </span>
         ))}
       </h1>
-      <motion.p variants={riseItem} className="mt-3.5 text-base text-muted">
+      <motion.p variants={riseItem} className="mt-3.5 text-base text-muted lg:mt-5 lg:text-lg">
         {sentence}
       </motion.p>
     </div>

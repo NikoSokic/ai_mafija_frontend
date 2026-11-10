@@ -9,12 +9,14 @@ type ThemeRootProps = {
 
 // Postavlja data-theme (boje iz index.css) i pozadinu s blagim sjajem neba gore desno.
 // Temu daje i kroz ThemeContext, za overlaye koji se renderiraju u portalu.
+// Desktop: okvir ekrana pušta grad preko cijele širine (overflow-visible), pa se ovdje reže sve što bi
+// izašlo iz prozora (npr. sjaj Mjeseca na 1024 px) – bez vodoravnog skrola.
 export default function ThemeRoot({ theme, children, className = '' }: ThemeRootProps) {
   return (
     <ThemeContext value={theme}>
       <div
         data-theme={theme}
-        className={`relative isolate min-h-dvh bg-bg text-text transition-colors duration-700 ease-out-soft ${className}`}
+        className={`relative isolate min-h-dvh bg-bg text-text transition-colors duration-700 ease-out-soft lg:overflow-x-clip ${className}`}
       >
         <div
           aria-hidden="true"
