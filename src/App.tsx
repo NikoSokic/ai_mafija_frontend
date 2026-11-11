@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router'
+import CookieBanner from './components/CookieBanner.tsx'
 import CreateRoomPage from './pages/CreateRoomPage.tsx'
 import GameScreen from './pages/GameScreen.tsx'
 import HomePage from './pages/HomePage.tsx'
@@ -18,6 +19,7 @@ export default function App() {
   return (
     <>
       <SessionResume />
+      <CookieBanner />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/sobe" element={<PublicRoomsPage />} />

@@ -90,6 +90,8 @@ async function newContext(browser, base, viewport, storage) {
     if (url.origin === origin) return route.continue()
     return route.abort()
   })
+  // Banner za kolačiće nije dio ekrana koji se uspoređuju
+  await context.addInitScript(() => localStorage.setItem('aimafija.consent', 'no'))
   if (storage) {
     await context.addInitScript((items) => {
       for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v)

@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { track } from '../analytics.ts'
 import { describeError, joinLobby } from '../api/rest.ts'
 import { saveSession } from '../store/session.ts'
 import Button from './Button.tsx'
@@ -56,6 +57,7 @@ function JoinCodeForm({ nickname, emoji }: { nickname: string; emoji: string }) 
     try {
       const res = await joinLobby(code, nickname, emoji)
       saveSession({ playerId: res.playerId, playerToken: res.playerToken, lobbyCode: res.lobbyCode })
+      track('room_joined')
       navigate(`/soba/${res.lobbyCode}`)
     } catch (e) {
       const message = describeError(e, code)

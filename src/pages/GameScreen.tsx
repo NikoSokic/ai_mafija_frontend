@@ -110,10 +110,15 @@ function outcomeOf(r: ResolveVoteResponse): Outcome | null {
   // ponovno glasanje nema suzdržanih (abstainCount null)
   if (r.abstainCount === null) return { kind: 'none', title: 'Opet izjednačeno', text: 'Danas nitko ne odlazi.' }
   if (r.tiedPlayerIds.length) {
-    return { kind: 'none', title: 'Izjednačeno', text: 'Nema tko glasati ponovno, pa danas nitko ne odlazi.' }
+    return { kind: 'none', title: 'Izjednačeno', text: 'Premalo je igrača za ponovno glasanje, pa danas nitko ne odlazi.' }
   }
   if (!r.voteCounts.length) {
     return { kind: 'none', title: 'Danas nitko ne odlazi', text: 'Nitko nije glasao ni za jednog igrača.' }
+  }
+  // backend prvo gleda suzdržane, pa tek onda raspršene glasove (izjednačeni vrh s jednim glasom)
+  const top = r.voteCounts[0].votes
+  if (r.abstainCount < top && top < 2) {
+    return { kind: 'none', title: 'Glasovi su se raspršili', text: 'Nitko nije dobio više od jednog glasa, pa danas nitko ne odlazi.' }
   }
   return { kind: 'none', title: 'Danas nitko ne odlazi', text: 'Suzdržanih je bilo barem koliko i glasova za vodećeg.' }
 }

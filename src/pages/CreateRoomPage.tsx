@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { track } from '../analytics.ts'
 import { createLobby, describeError, getRoles } from '../api/rest.ts'
 import type { Role } from '../api/types.ts'
 import Button from '../components/Button.tsx'
@@ -132,6 +133,7 @@ function CreateRoomForm({ hostNickname }: { hostNickname: string }) {
         playerToken: res.playerToken,
         lobbyCode: res.code,
       })
+      track('room_created', { mode: mode === 'live' ? 'uzivo' : 'online' })
       navigate(`/soba/${res.code}`)
     } catch (e) {
       show('Soba nije kreirana', describeError(e))

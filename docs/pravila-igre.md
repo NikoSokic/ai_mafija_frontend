@@ -51,11 +51,12 @@ Tim mafije (Mafia, Dama) pobjeđuje kad ih je jednako ili više od ostalih. Gra�
 - **Tko ispada:** igrač s najviše glasova, ali samo ako ima **strogo više** glasova od broja suzdržanih.
   - Lea 3 glasa, 2 suzdržana → Lea ispada.
   - Lea 2 glasa, 2 ili više suzdržanih → nitko ne ispada.
-- **Izjednačenje** (dva ili više vodećih, a suzdržanih je manje): ponovno glasanje, odmah i bez rasprave, 60 s.
+- **Raspršeni glasovi** (dva ili više vodećih s po **jednim** glasom, a suzdržanih je manje): nema ponovnog glasanja, nitko ne ispada i počinje noć.
+- **Izjednačenje** (dva ili više vodećih s po **barem 2** glasa, a suzdržanih je manje): ponovno glasanje, odmah i bez rasprave, 60 s.
   - Glasa se samo između izjednačenih; izjednačeni ne glasaju; nema "Suzdržan".
   - Tko ne glasa u roku, nema glas.
   - Ako je opet izjednačeno (ili nitko ne glasa), nitko ne ispada i počinje noć.
-  - Ako su svi živi izjednačeni, nema tko glasati, pa nitko ne ispada.
+  - Ako bi u ponovnom glasanju moglo glasati manje od dvoje igrača, nema ga i nitko ne ispada (jedan igrač ne odlučuje sam).
 - Uloga izbačenog ostaje tajna do kraja igre.
 
 ## Napuštanje sobe

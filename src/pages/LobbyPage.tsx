@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { track } from '../analytics.ts'
 import { ApiError, describeError, joinLobby, reconnect, startLobby } from '../api/rest.ts'
 import type { LobbyPlayerResponse } from '../api/types.ts'
 import Avatar from '../components/Avatar.tsx'
@@ -521,6 +522,11 @@ function StartButton({ code, session, missing }: StartButtonProps) {
     setSending(true)
     try {
       await startLobby(code, session)
+      // gumb ima samo domaćin, pa se partija broji jednom po sobi
+      const lobby = useGameStore.getState().lobby
+      if (lobby) {
+        track('game_started', { players: lobby.players.length, mode: lobby.mode === 'LIVE' ? 'uzivo' : 'online' })
+      }
       // ne čeka se GAME_STARTED: ako veza ne radi, domaćin svejedno ide u igru
       useGameStore.getState().gameStarted()
     } catch (e) {
@@ -574,6 +580,7 @@ function JoinForm({ lobby, onJoined, inline = false }: JoinFormProps) {
       const session = { playerId: res.playerId, playerToken: res.playerToken, lobbyCode: res.lobbyCode }
       saveSession(session)
       saveProfile({ nickname: nick, emoji })
+      track('room_joined')
       // odmah u popis; PLAYER_JOINED za istog igrača samo ga zamijeni
       useGameStore.getState().playerJoined({
         id: res.playerId,

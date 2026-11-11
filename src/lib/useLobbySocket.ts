@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { track } from '../analytics.ts'
 import { describeError, getLobby } from '../api/rest.ts'
 import type { LobbyEvent } from '../api/types.ts'
 import { loadSession } from '../store/session.ts'
@@ -26,9 +27,19 @@ function applyEvent(event: LobbyEvent) {
     case 'GAME_STATE_CHANGED':
       store.gameStateChanged(event.data)
       break
-    case 'GAME_FINISHED':
+    case 'GAME_FINISHED': {
+      // događaj stiže svima; šalje ga samo domaćin, da se partija ne broji više puta
+      const { lobby } = store
+      if (lobby && lobby.hostPlayerId !== null && lobby.hostPlayerId === loadSession()?.playerId) {
+        track('game_finished', {
+          players: event.data.players.length,
+          winner: event.data.winner === 'MAFIA_WIN' ? 'MAFIJA' : event.data.winner === 'CITIZENS_WIN' ? 'GRADJANI' : null,
+          mode: lobby.mode === 'LIVE' ? 'uzivo' : 'online',
+        })
+      }
       store.gameFinished(event.data)
       break
+    }
     case 'VOTE_RESOLVED':
       store.voteResolved(event.data)
       break

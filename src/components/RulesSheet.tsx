@@ -24,7 +24,7 @@ const VOTING = [
   },
   {
     title: 'Ponovno glasanje',
-    text: 'Ako dva ili više igrača imaju najviše glasova, odmah slijedi još jedno glasanje od 60 s, bez rasprave. Glasa se samo između izjednačenih, oni sami ne glasaju i "Suzdržan" više ne postoji. Ako je opet izjednačeno ili nitko ne glasa, nitko ne ispada i počinje noć.',
+    text: 'Ako dva ili više igrača imaju najviše glasova, i to barem po 2, odmah slijedi još jedno glasanje od 60 s, bez rasprave. Glasa se samo između izjednačenih, oni sami ne glasaju i "Suzdržan" više ne postoji. Ako je opet izjednačeno ili nitko ne glasa, nitko ne ispada i počinje noć. Ako izjednačeni imaju samo po jedan glas, glasovi su se raspršili: nema ponovnog glasanja i nitko ne ispada.',
   },
 ]
 
