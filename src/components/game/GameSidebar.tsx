@@ -83,8 +83,9 @@ export default function GameSidebar({
         </span>
       </div>
 
-      {/* zadnjih 12 px popisa blijedi: kad popis stane, to je prazan donji razmak, a kad ne stane, vidi se da ima još */}
-      <ul className="mt-2 min-h-0 flex-1 overflow-y-auto px-1 pb-3 [scrollbar-width:thin] [mask-image:linear-gradient(to_bottom,#000_calc(100%-12px),transparent)]">
+      {/* zadnjih 12 px popisa blijedi: kad popis stane, to je prazan donji razmak, a kad ne stane, vidi se da ima još.
+          Mjesto za klizač je uvijek rezervirano (scrollbar-gutter), pa status ne dira klizač i ne pomiče se kad se on pojavi. */}
+      <ul className="mt-2 min-h-0 flex-1 overflow-y-auto pr-2 pb-3 pl-1 [scrollbar-color:var(--line)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin] [mask-image:linear-gradient(to_bottom,#000_calc(100%-12px),transparent)]">
         {sorted.map((p) => {
           const isHost = hostId !== null ? p.id === hostId : p.host
           const status = sidebarStatus(p, { silenced: silencedIds.includes(p.id), away: awayIds.includes(p.id) })

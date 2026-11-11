@@ -36,8 +36,17 @@ export default function TimeBar({ startsAt, endsAt, seconds, label = 'Preostalo 
     const total = end - start
     let frame = 0
     let vibrated = false
+    let shownMs = Number.NaN
+    let lastFrame = 0
     const tick = () => {
-      const remaining = Math.min(total, Math.max(0, end - serverNow()))
+      const now = performance.now()
+      const target = Math.min(total, Math.max(0, end - serverNow()))
+      // Nova procjena sata može pomaknuti rok: traka se tada ne vraća unazad i ne skače naprijed,
+      // nego ide najviše duplo brže od stvarnog vremena dok ne sustigne točnu vrijednost
+      const dt = lastFrame ? now - lastFrame : 0
+      lastFrame = now
+      shownMs = Number.isNaN(shownMs) ? target : Math.min(shownMs, Math.max(target, shownMs - 2 * dt))
+      const remaining = shownMs
       const whole = Math.ceil(remaining / 1000)
       const isUrgent = remaining <= URGENT_MS
       if (fillRef.current) {

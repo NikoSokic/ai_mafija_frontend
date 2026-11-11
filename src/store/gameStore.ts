@@ -88,10 +88,18 @@ function mergePlayers(current: LobbyPlayerResponse[], incoming: LobbyPlayerRespo
   return [...byId.values()].sort((a, b) => a.id - b.id)
 }
 
-// Razlika sata u trenutku kad je stanje stiglo; kašnjenje mreže se zanemaruje
+// Razlika sata prema poslužitelju. Svaki uzorak (serverTime − vrijeme dolaska) je umanjen za kašnjenje
+// mreže, koje je svaki put drugo, pa se uzima najveći od zadnjih uzoraka: on je najmanje zakasnio.
+// Bez toga bi svako novo stanje pomaknulo rokove za nekoliko stotina ms i traka vremena bi skakala.
+const OFFSET_SAMPLES = 10
+const offsetSamples: number[] = []
+
 function offsetFrom(serverTime: string | undefined, fallback: number) {
   const server = serverTime ? Date.parse(serverTime) : NaN
-  return Number.isFinite(server) ? server - Date.now() : fallback
+  if (!Number.isFinite(server)) return fallback
+  offsetSamples.push(server - Date.now())
+  if (offsetSamples.length > OFFSET_SAMPLES) offsetSamples.shift()
+  return Math.max(...offsetSamples)
 }
 
 // Svaka faza glasanja se obradi jednom: TIE_BREAK nema suzdržanih (abstainCount null)
